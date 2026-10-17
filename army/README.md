@@ -25,3 +25,4 @@ F is a measuring stick only: never tune against it.
 | `turnplan` | v5 + within-turn turn-plan lookahead (top-3, margin 0.05) | 0.519 vs v5 (1800 g), 0.785 vs F |
 | `combo` | v5 + regime B + turn-plan (`bot_combo/`) | 0.524 vs v5 (3000 g), 0.793 vs F |
 | `pasted` | team variant: v5 + regime 0.75 + robber-block risk, opponent profiling, monopoly/knight bonuses | 0.518 vs v5, 0.510 vs combo, 0.760 vs fregime, 0.792 vs F (600 g each) |
+| `adapt` | opponent-adaptive: Thompson-sampling bandit over 4 strategy arms (combo, v5, block, race), one arm per game, learns per opponent across the games of one process (`bot_adapt/`) | 0.805 vs F (400 g, clocked), 0.530 vs v5 (400 g, clocked) |
