@@ -31,3 +31,14 @@ sanity check defaults vs `zoo/v5_final.py`: 0.495 ± 0.069, n=200).
 - Spec quirk: right after setup, every legal spot is usually 2 roads away, so with 1-road reach phi_space
   can jump to 1 early. D (two-road reach) fixes this but scores no better than A.
 - Next step if continued: SPSA-tune `reg_fade` and `reg_dev` only (keep `regime`=0), then do one more ≥2400-game h2h.
+
+## Follow-up: SPSA with the regime turned on (F never used)
+
+- Started from v5 DEFAULT plus regime=0.5, reg_fade=0.35, reg_dev=0.25 (`runs/agent_spsa_reg.py`); ran 301 iterations × 64 games.
+- Tuned regime values: regime=0.77, reg_fade=0.26, reg_dev=0.24. Full params are in `runs/spsa_reg_params.json`, loaded by `runs/v9_spsareg.py`.
+
+| Variant | h2h vs v5_final | n | seeds |
+|---|---|---|---|
+| v9_spsareg | 0.503 ± 0.028 | 1200 | 1800000 |
+
+Not adopted: the tuned variant is no better than v5.
