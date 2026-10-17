@@ -1,6 +1,7 @@
 # Presentation script: Team bakarwadi (6 minutes + 4 minutes of questions)
 
-About 830 spoken words, which is 6 minutes at a calm pace. Speaker labels A, B and C are
+About 930 spoken words, which is about 6.5 minutes at a calm pace, so speak briskly or drop the
+last bullet of Part 6 if you run long. Speaker labels A, B and C are
 placeholders; split the parts however suits you. Times are cumulative.
 
 ---
@@ -40,7 +41,7 @@ placeholders; split the parts however suits you. Times are cumulative.
 > percent of games, and F bought just two dev cards a game. Largest Army is 2 free points that F will
 > never fight for.
 >
-> So we built our bot to want those points. In the end, our bot held Largest Army in about 89 percent of
+> So we built our bot to want those points. Our first tuned bot, v5, held Largest Army in about 89 percent of
 > its wins against F. **We did not make the bot cleverer everywhere. We made it greedy exactly where F is
 > blind.**
 
@@ -114,7 +115,7 @@ placeholders; split the parts however suits you. Times are cumulative.
 | Question | Short answer |
 |---|---|
 | **Why not MCTS or reinforcement learning?** | One random playout costs 11 ms, almost a whole move's budget. Published from-scratch RL bots for Catan lost even to random players, and we had one day. |
-| **How do you know you didn't overfit to F?** | F was never used in tuning or in choosing versions. Our local F numbers (0.791 and 0.820) matched the leaderboard (0.779 and 0.813). We also gained against O, which we never played. |
+| **How do you know you didn't overfit to F?** | F was never used in tuning or in choosing versions. Our local F numbers (0.791 and 0.820) matched the leaderboard (0.779 and 0.813). We also gained against O, which we never trained against. |
 | **Why do you think the learned evaluation failed?** | It learned which states *look like* winning, not which *moves* win. Holding cards correlates with winning, so the greedy bot hoards. The fix is a decision-level signal: compare the chosen move against the alternatives, or TD learning. More outcome data does not fix it. |
 | **Then why did learning work for the opening?** | Settlements are compared at one moment with nothing in progress, so predicting the outcome from a placement and choosing the placement are the same question. |
 | **What is SPSA, and why use it?** | It nudges all weights at once in a random ± direction, plays the "+" and "−" versions against each other, and steps toward the winner. It costs two bots per step regardless of how many weights there are, and it works with a noisy, non-differentiable win rate. 93 steps took about 12 minutes on 4 cores. |
