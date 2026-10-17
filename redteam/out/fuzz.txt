@@ -1,0 +1,6 @@
+A=army/comboop1/agent.py B=redteam/fuzz_random.py games=100 seed0=777000
+A win rate 1.0000 +-0.0000 (100/100) no_winner=0
+A mean CPU/game 548.1 ms worst 1220.0 ms over_budget=0 errors=0 timeouts=0 crashes=0 decisions=5187
+B mean CPU/game 22.3 ms over_budget=0
+A wins as first 50/50, as second 50/50
+wall 52.1s

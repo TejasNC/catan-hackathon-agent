@@ -1,0 +1,3 @@
+agent.py vs robber_spam.py: 0.8400 +-0.0508 (n=200)
+agent.py vs road_plow.py: 0.9600 +-0.0272 (n=200)
+agent.py vs dev_hoard.py: 0.9900 +-0.0138 (n=200)

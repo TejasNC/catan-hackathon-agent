@@ -1,0 +1,18 @@
+comboop1 vs redteam/road_plow.py: win 0.980 n=200 no_winner=0 mean_turns=68
+flags: {'trade_4to1': 902, 'trade_2to1': 72, 'yop': 69, 'monopoly_played': 61, 'monopoly_one': 27, 'trade_3to1': 114, 'end_turn_with_settlement': 8, 'robber_on_own_tile': 15}
+examples: [(880005, False, 17, 'end_with_settle'), (880081, False, 23, 'end_with_settle'), (880090, False, 37, 'end_with_settle'), (880090, False, 39, 'end_with_settle'), (880090, False, 41, 'end_with_settle'), (880093, False, 19, 'end_with_settle'), (880093, False, 21, 'end_with_settle'), (880093, False, 25, 'end_with_settle')]
+  PLAY_TURN:MARITIME_TRADE                 n=  1088 mean=  26.0ms p99= 145.2 max= 294.5
+  PLAY_TURN:END_TURN                       n=  2921 mean=   7.9ms p99=  53.5 max= 204.5
+  PLAY_TURN:BUILD_SETTLEMENT               n=   506 mean=  21.0ms p99=  83.4 max= 191.3
+  PLAY_TURN:BUY_DEVELOPMENT_CARD           n=   902 mean=   9.8ms p99=  68.3 max= 177.2
+  PLAY_TURN:BUILD_ROAD                     n=  1156 mean=  18.3ms p99= 110.7 max= 167.6
+  PLAY_TURN:PLAY_ROAD_BUILDING             n=    60 mean=  14.9ms p99= 140.5 max= 166.7
+  PLAY_TURN:PLAY_YEAR_OF_PLENTY            n=    69 mean=  34.8ms p99= 137.9 max= 157.4
+  PLAY_TURN:BUILD_CITY                     n=   406 mean=  12.5ms p99=  62.7 max= 136.7
+  INIT                                     n=   800 mean=  11.5ms p99=  86.8 max= 102.0
+  MOVE_ROBBER:MOVE_ROBBER                  n=  1525 mean=   5.7ms p99=  13.3 max=  81.5
+  PLAY_TURN:PLAY_MONOPOLY                  n=    61 mean=  12.8ms p99=  64.9 max=  77.7
+  PLAY_TURN:PLAY_KNIGHT_CARD               n=   478 mean=   6.8ms p99=  36.2 max=  72.4
+  PLAY_TURN:ROLL                           n=   295 mean=  10.1ms p99=  40.5 max=  57.0
+  DISCARD:DISCARD_RESOURCE                 n=   791 mean=   1.2ms p99=   2.7 max=   3.8
+  per-game CPU mean 0.63s max 4.40s

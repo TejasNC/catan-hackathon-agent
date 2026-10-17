@@ -1,0 +1,6 @@
+A=army/v5/agent.py B=redteam/robber_spam.py games=200 seed0=990500
+A win rate 0.8000 +-0.0554 (160/200) no_winner=0
+A mean CPU/game 421.9 ms worst 1300.0 ms over_budget=0 errors=0 timeouts=0 crashes=0 decisions=11030
+B mean CPU/game 328.4 ms over_budget=0
+A wins as first 84/100, as second 76/100
+wall 55.1s

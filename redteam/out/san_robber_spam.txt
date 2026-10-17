@@ -1,0 +1,18 @@
+comboop1 vs redteam/robber_spam.py: win 0.840 n=200 no_winner=0 mean_turns=73
+flags: {'trade_4to1': 865, 'trade_2to1': 84, 'yop': 80, 'trade_3to1': 101, 'monopoly_played': 80, 'monopoly_one': 20, 'robber_on_own_tile': 25}
+examples: []
+  PLAY_TURN:MARITIME_TRADE                 n=  1050 mean=  33.3ms p99= 172.3 max= 421.3
+  PLAY_TURN:PLAY_MONOPOLY                  n=    80 mean=  18.0ms p99= 104.4 max= 248.0
+  PLAY_TURN:BUILD_ROAD                     n=  1192 mean=  21.0ms p99= 143.9 max= 189.0
+  PLAY_TURN:BUILD_SETTLEMENT               n=   476 mean=  24.3ms p99=  92.9 max= 164.7
+  PLAY_TURN:END_TURN                       n=  2720 mean=  12.1ms p99=  87.5 max= 162.0
+  PLAY_TURN:PLAY_YEAR_OF_PLENTY            n=    80 mean=  28.5ms p99= 117.1 max= 155.2
+  PLAY_TURN:BUILD_CITY                     n=   353 mean=  15.6ms p99=  82.4 max= 146.6
+  PLAY_TURN:BUY_DEVELOPMENT_CARD           n=   983 mean=  11.1ms p99=  93.8 max= 141.2
+  PLAY_TURN:PLAY_KNIGHT_CARD               n=   501 mean=   8.7ms p99=  54.5 max= 137.5
+  MOVE_ROBBER:MOVE_ROBBER                  n=  1707 mean=   6.4ms p99=  20.3 max= 119.9
+  PLAY_TURN:PLAY_ROAD_BUILDING             n=    66 mean=  19.1ms p99=  91.5 max=  97.2
+  INIT                                     n=   800 mean=  11.2ms p99=  82.3 max=  96.2
+  PLAY_TURN:ROLL                           n=   337 mean=  13.6ms p99=  45.8 max=  75.5
+  DISCARD:DISCARD_RESOURCE                 n=   673 mean=   1.4ms p99=   2.8 max=   4.7
+  per-game CPU mean 0.78s max 4.21s
