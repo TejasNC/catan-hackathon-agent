@@ -275,7 +275,11 @@ class Valuer:
         s1, k1, r1 = self.score(game, me_color, True, c, robber_tile)
         s2, k2, r2 = self.score(game, opp_color, False, c, robber_tile)
         p = self.p
-        v = s1 - p["opp_k"] * s2
+        ok = p["opp_k"]
+        if p.get("danger"):
+            ovp = st.player_state[f"P{st.color_to_index[opp_color]}_VICTORY_POINTS"]
+            ok += p["danger"] * max(0, ovp - 6) / 3.0
+        v = s1 - ok * s2
         v += p["army_lead"] * max(-2, min(2, k1 - k2))
         v += p["road_lead"] * max(-2, min(2, r1 - r2)) / 2
         return v

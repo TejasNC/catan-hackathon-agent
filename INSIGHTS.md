@@ -91,6 +91,8 @@ held-out check.
 | **v5** | **+ SPSA self-play-tuned weights (final `bot/agent.py`)** | **0.791 ± 0.025** | 1000 / 123000 | 0.550 ± 0.049 vs v3 | 264 ms |
 | v5 | (same, third seed set, + low-clock fallback tier) | 0.787 ± 0.033 | 600 / 777000 | | 249 ms |
 | v6 | SPSA continued to 126 iterations | 0.785 ± 0.026 | 1000 / 123000 | 0.523 ± 0.049 vs v5 | 255 ms |
+| — | SPSA round 2 (170 more iterations from v5 weights + draft) | — | | 0.503 ± 0.040 vs v5 (n=600) | |
+| — | endgame "danger mode" (opponent weight rises above 6 VP), 2 strengths | — | | 0.497 ± 0.040 each | |
 | — | convex "progress toward target" hand features | — | | 0.417 ± 0.056 vs v2 | |
 | — | hybrid: regression-informed asset weights | — | | 0.500 ± 0.057 vs v2 | |
 | — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 | |
@@ -146,6 +148,10 @@ the reference machine (budget ≈ 1,000 ms).
 10. **Variance is huge**: ±4.4 points at n = 400; several "improvements" at n = 40–60 vanished at
     n = 300. Paired boards (same board and dice for both seats) and ≥ 300-game head-to-heads were
     necessary to see anything.
+
+**Leaderboard (organisers' machine), submission #1 = v5:** vs F 0.779 ± 0.026, vs O 0.626 ± 0.030,
+164 ms mean CPU, 0 over clock, 0 faults. Our local F estimate (0.787–0.791) matched the leaderboard.
+SPSA has plateaued: a second round from the tuned weights gives 0.503 head-to-head.
 
 ## 7. Ideas not finished (for next time)
 
