@@ -25,3 +25,4 @@ F is a measuring stick only: never tune against it.
 | `turnplan` | v5 + within-turn turn-plan lookahead (top-3, margin 0.05) | 0.519 vs v5 (1800 g), 0.785 vs F |
 | `combo` | v5 + regime B + turn-plan (`bot_combo/`) | 0.524 vs v5 (3000 g), 0.793 vs F |
 | `pasted` | team variant: v5 + regime 0.75 + robber-block risk, opponent profiling, monopoly/knight bonuses | 0.518 vs v5, 0.510 vs combo, 0.760 vs fregime, 0.792 vs F (600 g each) |
+| `op1` | v5 + learned opening: P(win \| 4 settlements) logistic model fit on 16k v5-vs-v5 games with perturbed openings (AUC 0.74), draft search predicting the opponent's picks with v5's draft, CPU-deadline guarded (see `army/op1/README.md`) | 0.543 vs v5, 0.588 vs v2, 0.590 vs v3, 0.685 vs v1 (600 g each, paired); 0.786 vs F (1,600 g pooled; v5 0.761 on the same games) |
