@@ -50,6 +50,16 @@ CVaR_0.5 = mean of the worst 4 of 8 cells; its CI is about ±0.05.
 | r2 robber-aware, 0.4 | 0.583 | 0.500 | 0.66 | 0.64 | 0.59 | 0.49 | 0.49 | 0.52 | 0.77 | 0.50 |
 | r3 army give-up, 0.6 | 0.583 | 0.513 | 0.69 | 0.61 | 0.56 | 0.50 | 0.53 | 0.52 | 0.75 | 0.50 |
 | r4 concave prod, cap 8 | 0.571 | 0.493 | 0.65 | 0.61 | 0.59 | 0.47 | 0.52 | 0.54 | 0.75 | 0.44 |
+| s1 CVaR-SPSA weights | 0.491 | **0.400** | 0.58 | 0.57 | 0.42 | 0.35 | 0.50 | 0.47 | 0.68 | 0.36 |
+
+h2h vs v5 (600 games, seed 2600000): r1 0.497, r2 0.502, r3 0.507, r4 0.502, **s1 0.463** (all ±0.040).
+
+**CVaR-SPSA** (`tools/spsa_cvar.py 40 6`: 40 iterations, 7 opponents × 6 games per θ±, fregime held out)
+made things clearly worse: CVaR 0.51 → 0.40, held-out fregime 0.75 → 0.68, h2h 0.463. Why: with 6
+games per opponent each cell has SE ≈ 0.2, so J = mean + worst-half is dominated by which cells
+got unlucky. The min-of-noisy-cells is a biased, high-variance signal, and the weights random-walked
+(rms log-move 0.40, opp_k 0.74 → 0.52). To work, the gauntlet objective needs ≥ 30 games per
+opponent per θ (≈ 400 games per iteration, ~45 s) or a smooth surrogate (mean of logits).
 
 Reading: no variant moves the floor; every difference is < 1 SE. v5's floor is set by the
 near-mirrors (blocker = v5 with opp_k 1.25, v3, v5 itself), where paired boards split 1–1

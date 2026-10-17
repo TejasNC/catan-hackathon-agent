@@ -1,0 +1,6 @@
+h0_ctrl.py: mean=0.5837 cvar50=0.5100 (+-0.049) n/opp=100 | ows_zealot=0.690 road_plower=0.610 port_trader=0.580 blocker=0.500 greedy=0.540 v3_agent=0.500 fregime_agent=0.750 v5_final=0.500
+r1_adapt.py: mean=0.5862 cvar50=0.5100 (+-0.049) n/opp=100 | ows_zealot=0.690 road_plower=0.630 port_trader=0.580 blocker=0.510 greedy=0.530 v3_agent=0.500 fregime_agent=0.750 v5_final=0.500
+r2_robaware.py: mean=0.5825 cvar50=0.5000 (+-0.049) n/opp=100 | ows_zealot=0.660 road_plower=0.640 port_trader=0.590 blocker=0.490 greedy=0.490 v3_agent=0.520 fregime_agent=0.770 v5_final=0.500
+r3_army.py: mean=0.5825 cvar50=0.5125 (+-0.049) n/opp=100 | ows_zealot=0.690 road_plower=0.610 port_trader=0.560 blocker=0.500 greedy=0.530 v3_agent=0.520 fregime_agent=0.750 v5_final=0.500
+r4_conc.py: mean=0.5713 cvar50=0.4925 (+-0.049) n/opp=100 | ows_zealot=0.650 road_plower=0.610 port_trader=0.590 blocker=0.470 greedy=0.520 v3_agent=0.540 fregime_agent=0.750 v5_final=0.440
+s1_spsacvar.py: mean=0.4912 cvar50=0.4000 (+-0.049) n/opp=100 | ows_zealot=0.580 road_plower=0.570 port_trader=0.420 blocker=0.350 greedy=0.500 v3_agent=0.470 fregime_agent=0.680 v5_final=0.360

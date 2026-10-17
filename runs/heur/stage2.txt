@@ -1,0 +1,6 @@
+h1b_knhold.py vs v5_final.py: 0.4983 +-0.0400 (n=600)
+h2b_robber.py vs v5_final.py: 0.5017 +-0.0400 (n=600)
+h3b_dup.py vs v5_final.py: 0.5100 +-0.0400 (n=600)
+h4b_plow.py vs v5_final.py: 0.5083 +-0.0400 (n=600)
+h5b_mono.py vs v5_final.py: 0.5067 +-0.0400 (n=600)
+h6_combo.py vs v5_final.py: 0.5050 +-0.0400 (n=600)

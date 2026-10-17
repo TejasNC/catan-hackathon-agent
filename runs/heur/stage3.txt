@@ -1,0 +1,5 @@
+r1_adapt.py vs v5_final.py: 0.4967 +-0.0400 (n=600)
+r2_robaware.py vs v5_final.py: 0.5017 +-0.0400 (n=600)
+r3_army.py vs v5_final.py: 0.5067 +-0.0400 (n=600)
+r4_conc.py vs v5_final.py: 0.5017 +-0.0400 (n=600)
+s1_spsacvar.py vs v5_final.py: 0.4633 +-0.0399 (n=600)
