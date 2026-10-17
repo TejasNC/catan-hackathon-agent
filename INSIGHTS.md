@@ -99,6 +99,8 @@ held-out check.
 | — | robber lookahead (remote session) | — | | 0.498 | |
 | — | combo: regime B + turn-plan | — | | 0.508 ± 0.028 vs v5 (n=1200) | |
 | — | stronger army race / road race / both (vs F+regime bot) | — | | 0.745 / 0.732 / 0.728 vs F+regime (v5: 0.747) | |
+| — | 1v1 community heuristics (remote session): defensive knight hold, Monopoly gate, bottleneck robber, duplicate-number discount, plow/contested spots | — | | 0.470–0.512 vs v5 (600 each); strong settings lean negative | |
+| — | team-provided variant (`army/pasted`) | 0.792 ± 0.033 | 600 / 123000 | 0.518 vs v5, 0.510 vs combo, 0.760 vs fregime | 274 ms |
 | — | convex "progress toward target" hand features | — | | 0.417 ± 0.056 vs v2 | |
 | — | hybrid: regression-informed asset weights | — | | 0.500 ± 0.057 vs v2 | |
 | — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 (0.16 after fixing a weight-index bug in runs/v4_lin.py) | |
