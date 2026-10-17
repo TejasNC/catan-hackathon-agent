@@ -12,3 +12,4 @@ runs/*.json
 runs/*.out
 runs/__pycache__/
 bot.zip
+bot_combo.zip
