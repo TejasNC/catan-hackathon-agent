@@ -19,7 +19,10 @@ and ready. You reach it with SSH through our gateway, using your team's username
 ### Log in
 
 Your username is `team` followed by your team name, all lower case, with no spaces. For example, the
-team *blanc* logs in as `teamblanc`. Your password is sent to your team leader.
+team *blanc* logs in as `teamblanc`. Your initial password is your team name (all lower case, no
+spaces) followed by the last 4 digits of your team leader's registered phone number, written twice. If
+that number ends in 1234, team *blanc* starts with `blanc12341234`. Change it as soon as you are in,
+as described below.
 
 **Mac or Linux:** open Terminal. **Windows 10 or 11:** open PowerShell (SSH is built in).
 
@@ -128,77 +131,6 @@ It prints `uploaded to ...` when the upload worked. The team portal then shows y
 queued, scored and done, with its results. A zip can be at most 100 MB. Every upload counts towards your
 team's limit, failed ones included, so test locally with `evaluate` first. The latest PDF you upload is
 your report.
-
-### Coding assistant (OpenCode)
-
-OpenCode is a coding assistant that runs in your terminal, connected to our inference server. Your
-team's API key is sent to your team leader: paste it where it says `<your key>` below.
-
-> [!WARNING]
-> Your machine's shell is **bash**, so everything goes in `~/.bashrc` (not `~/.zshrc`). Run each command
-> on its own, in this order.
-
-1. Install OpenCode:
-
-   ```bash
-   curl -fsSL https://opencode.ai/install | bash
-   ```
-
-2. Load the new settings, so the shell can find `opencode`:
-
-   ```bash
-   source ~/.bashrc
-   ```
-
-3. Add the `opencode-hyde` command, which keeps the Hyde setup separate from any other OpenCode settings:
-
-   ```bash
-   echo "alias opencode-hyde='XDG_CONFIG_HOME=~/.hyde-opencode/config XDG_DATA_HOME=~/.hyde-opencode/data opencode'" >> ~/.bashrc
-   ```
-
-4. Save your API key (replace `<your key>`, keep the quotes):
-
-   ```bash
-   echo 'export HYDE_INFERENCE_API_KEY="<your key>"' >> ~/.bashrc
-   ```
-
-5. Load the settings again:
-
-   ```bash
-   source ~/.bashrc
-   ```
-
-6. Log in to the inference server. It should end with "Logged into https://inference.hyde.tech":
-
-   ```bash
-   opencode-hyde auth login https://inference.hyde.tech
-   ```
-
-7. Start it from your kit folder:
-
-   ```bash
-   cd ~/catan-agent-hackathon && opencode-hyde
-   ```
-
-After the first time, you only need step 7.
-
-- **"opencode-hyde: command not found"**
-
-  Run `source ~/.bashrc`, or log out and in again. If it still fails, check that the alias was saved with
-  `grep opencode-hyde ~/.bashrc`; if nothing is printed, repeat step 3.
-
-- **"opencode: command not found"**
-
-  The install did not finish, or the settings were not loaded. Run step 2, and if that does not help,
-  repeat step 1.
-
-> [!CAUTION]
-> Keep your API key to your team. Do not share it, put it in your code, or include it in your submission
-> zip.
-
-### Need help?
-
-Ask an organiser or a mentor in the room, and tell them your team name and the exact error message.
 
 ---
 
@@ -329,6 +261,77 @@ is not `weights.pt`), and paths must be built with `os.path.join`, never with `\
 | `examples/random_agent.py` | plays a random legal move and scores 0.000 against F |
 | `examples/f_agent.py` | **F itself**, one of the two bots you have to beat |
 
+
+## 7. Coding assistant (OpenCode)
+
+OpenCode is a coding assistant that runs in your terminal, connected to our inference server. Your
+team's API key is sent to your team leader: paste it where it says `<your key>` below.
+
+> [!WARNING]
+> Your machine's shell is **bash**, so everything goes in `~/.bashrc` (not `~/.zshrc`). Run each command
+> on its own, in this order.
+
+1. Install OpenCode:
+
+   ```bash
+   curl -fsSL https://opencode.ai/install | bash
+   ```
+
+2. Load the new settings, so the shell can find `opencode`:
+
+   ```bash
+   source ~/.bashrc
+   ```
+
+3. Add the `opencode-hyde` command, which keeps the Hyde setup separate from any other OpenCode settings:
+
+   ```bash
+   echo "alias opencode-hyde='XDG_CONFIG_HOME=~/.hyde-opencode/config XDG_DATA_HOME=~/.hyde-opencode/data opencode'" >> ~/.bashrc
+   ```
+
+4. Save your API key (replace `<your key>`, keep the quotes):
+
+   ```bash
+   echo 'export HYDE_INFERENCE_API_KEY="<your key>"' >> ~/.bashrc
+   ```
+
+5. Load the settings again:
+
+   ```bash
+   source ~/.bashrc
+   ```
+
+6. Log in to the inference server. It should end with "Logged into https://inference.hyde.tech":
+
+   ```bash
+   opencode-hyde auth login https://inference.hyde.tech
+   ```
+
+7. Start it from your kit folder:
+
+   ```bash
+   cd ~/catan-agent-hackathon && opencode-hyde
+   ```
+
+After the first time, you only need step 7.
+
+- **"opencode-hyde: command not found"**
+
+  Run `source ~/.bashrc`, or log out and in again. If it still fails, check that the alias was saved with
+  `grep opencode-hyde ~/.bashrc`; if nothing is printed, repeat step 3.
+
+- **"opencode: command not found"**
+
+  The install did not finish, or the settings were not loaded. Run step 2, and if that does not help,
+  repeat step 1.
+
+> [!CAUTION]
+> Keep your API key to your team. Do not share it, put it in your code, or include it in your submission
+> zip.
+
+## Need help?
+
+Ask an organiser or a mentor in the room, and tell them your team name and the exact error message.
 
 ## License
 
