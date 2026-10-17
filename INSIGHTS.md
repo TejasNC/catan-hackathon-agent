@@ -182,6 +182,14 @@ In games v5 loses to the stronger bot, the opponent holds Largest Army / Longest
 time (vs ~10 % in v5's wins) — but weighting those races more does not help, so it is a symptom
 of a bad position, not a decision error.
 
+**Decision audit (tools/audit.py, ~950 sampled v5 decisions, 24 Monte Carlo rollouts per candidate,
+common dice, split-half unbiased regret).** Robber moves (n=247): +0.2 ± 1.4 win-rate points; discards
+(n=112): +1.6 ± 1.3; ending the turn (n=74): +1.5 ± 2.3; opening roads/settlements, trades, builds,
+knight timing: ≈ 0. The one clear flaw: **Monopoly played before rolling, +7.3 ± 5.7** (rolling first adds
+information, and a pre-roll Monopoly swells the hand before a possible 7) → fixed in `bot_cop1fix/`.
+An early n=35 robber signal (+2.9 ± 2.8) vanished at n=247, and re-weighting robber moves did nothing
+(0.498 / 0.502 vs v5, n=1200): small audit samples mislead just like small win-rate samples.
+
 ## 7. Ideas not finished (for next time)
 
 * TD(λ) on after-states with self-play (the principled fix for insight 6).
