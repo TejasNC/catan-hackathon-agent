@@ -11,3 +11,4 @@ runs/*.jsonl*
 runs/*.json
 runs/*.out
 runs/__pycache__/
+bot.zip
