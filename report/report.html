@@ -30,7 +30,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <body>
 
 <h1>Beating a greedy Catan bot with a better evaluation, not deeper search</h1>
-<p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>bot_cop1fix</code></p>
+<p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>comboop1</code></p>
 
 <h2>1&nbsp; The problem and the budget</h2>
 <p>We had to build a bot for 2-player Catan, without trades between players, on the catanatron engine. It plays against F (catanatron's <code>ValueFunctionPlayer</code>), against O (the organisers' trained bot) and against the other teams. The only thing hidden from us is the opponent's unplayed development cards. Their resource hand we can work out exactly: there are 19 cards of each resource, so their hand is 19 minus the bank minus ours. The clock gives about 300&nbsp;ms plus 12.5&nbsp;ms of CPU per decision, so roughly one second for a whole game.</p>
@@ -97,7 +97,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <p><b>The early climb.</b> v1 was only the formula plus "trade, then build", and it already beat F 63&nbsp;% of the time. In v1 games we noticed that the bot finished games still holding knights. Playing a knight looked like "losing a card", because the gain only comes from the robber move after it. Adding that follow-up step gave about +5 points (v2). Next we made the opening think about the snake order, scoring each pick as our best pair minus the opponent's best pair, and that gave about +4 (v3). Then SPSA gave +6.5, the biggest single jump (v5).</p>
 <p>The weights SPSA moved are interesting in themselves. A knight in hand fell from 0.25 to 0.09&nbsp;VP, so play them and don't keep them. Production per pip halved (0.11 to 0.055) while wheat and ore went up ×1.6. The opponent weight fell from 0.9 to 0.74, and diversity rose from 0.12 to 0.27.</p>
 
-<p><b>Leaderboard.</b> v5 scored 0.779 ± 0.026 against F and 0.626 ± 0.030 against O. comboop1 then scored 0.813 ± 0.024 against F and 0.658 ± 0.029 against O, at 277&nbsp;ms mean CPU per game, with 0 games over the clock and 0 faults. Our own F estimates were 0.791 and 0.820, both inside the leaderboard intervals, so our testing setup was telling the truth. [TODO: leaderboard numbers for bot_cop1fix.]</p>
+<p><b>Leaderboard.</b> v5 scored 0.779 ± 0.026 against F and 0.626 ± 0.030 against O. comboop1 then scored 0.813 ± 0.024 against F and 0.658 ± 0.029 against O, at 277&nbsp;ms mean CPU per game, with 0 games over the clock and 0 faults. This is the bot we submitted. Our own F estimates were 0.791 and 0.820, both inside the leaderboard intervals, so our testing setup was telling the truth.</p>
 
 <p><b>Then we hit a plateau.</b> After v5, almost everything we tried came out level or worse:</p>
 <table>
@@ -117,8 +117,8 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 
 <p><b>Checking single decisions.</b> Win rates average everything together, so a bad habit in a rare situation stays hidden. We checked about 950 decisions from real v5 games.
 For each possible move we played 24 random continuations, with the same dice sequences for every move. Then we measured how much better the best alternative was than the move the bot chose. Half the rollouts picked the best alternative and the other half measured it, because the best of several noisy numbers always looks too good.</p>
-<p>Almost every kind of decision came out close to zero. One was clearly bad: <b>playing Monopoly before rolling cost about 7.3 ± 5.7 points</b>. Rolling first is free information. Playing Monopoly first also fills the hand just before a possible 7. We fixed it, and the fix did no harm (0.503 against comboop1 over 800 games, as the case is rare).</p>
-<p><b>Trying to break our own bot.</b> In a separate session we attacked comboop1 with three adversarial bots over 700 clocked games. There were no crashes and no exploit. But 2 of 500 very long games ran out of clock: the turn plan had no deadline and took up to 420&nbsp;ms on one move. In the submitted bot the turn plan runs only with at least 0.9&nbsp;s left, and mean CPU fell from 427 to 300&nbsp;ms per game. Against F it scored 0.770 ± 0.041 in 400 games, lower than comboop1's 0.820 and close to 2 standard errors. So this fix may have cost us some strength. We chose to stay safe on the clock.</p>
+<p>Almost every kind of decision came out close to zero. One was clearly bad: <b>playing Monopoly before rolling cost about 7.3 ± 5.7 points</b>. Rolling first is free information. Playing Monopoly first also fills the hand just before a possible 7. The fix did no harm (0.503 against comboop1 over 800 games), but it also showed no gain, because the case is rare.</p>
+<p><b>Trying to break our own bot.</b> In a separate session we attacked comboop1 with three adversarial bots over 700 clocked games. There were no crashes and no exploit. But 2 of 500 very long games ran out of clock: the turn plan had no deadline and took up to 420&nbsp;ms on one move. We built cop1fix, which has the Monopoly fix and runs the turn plan only with at least 0.9&nbsp;s left. Its mean CPU fell from 427 to 300&nbsp;ms per game. But against F it scored 0.770 ± 0.041 in 400 games, lower than comboop1's 0.820 and close to 2 standard errors. Running the turn plan less often probably costs strength. On the leaderboard, comboop1 had 0 games over the clock out of 1000 against each bot, so we judged the risk small and submitted comboop1.</p>
 
 <h2>6&nbsp; What we learned</h2>
 <ol>

@@ -360,7 +360,8 @@ version. Above 0.5 means the new version is better.
   to 300 ms.
 - **Cost:** the turn plan now runs less often. vs F it scored 0.770 (400 games), against
   comboop1's 0.820. That is close to 2 standard errors, so it may really be weaker.
-- We chose safety over that possible gain.
+- We did not submit this version. comboop1 had 0 games over the clock on the leaderboard, and the
+  fixed version looked weaker, so we submitted comboop1.
 
 ---
 
@@ -443,5 +444,6 @@ knights. Those points are nearly free.
 - **"Why did the learned evaluation fail?"** It learned which positions *look* like winning
   positions, not which *moves* lead to winning. Holding city cards correlates with winning, so it
   hoarded.
-- **"Why ship the clock fix if it might be weaker?"** A game over the clock is counted on the
-  leaderboard (check the problem statement for what happens to that game). A small possible strength loss was the safer trade.
+- **"Why not submit the clock fix?"** It scored 0.770 vs F against comboop1's 0.820, close to 2
+  standard errors, so it is probably weaker. comboop1 had 0 games over the clock in 1000
+  leaderboard games, so the clock risk looked small.
