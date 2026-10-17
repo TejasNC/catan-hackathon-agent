@@ -24,7 +24,7 @@ AT = ActionType
 
 DEFAULT = dict(
     # SPSA self-play tuned (93 iterations x 64 games, theta+ vs theta-; F never used).
-    # Hand-set starting values are kept in INSIGHTS.md.
+    # Hand-set starting values are kept in docs/INSIGHTS.md.
     prod=0.0550,
     prod_late=0.0495,
     div=0.2736,

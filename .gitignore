@@ -6,12 +6,8 @@ venv/
 *.egg-info/
 .DS_Store
 submissions/
-runs/*.npz
-runs/*.jsonl*
-runs/*.json
-runs/*.out
-runs/__pycache__/
-bot.zip
-bot_combo.zip
-bot_adapt.zip
-bot_cop1fix.zip
+*.zip
+# large self-play datasets (regenerate with tools/gen_data.py)
+experiments/*.npz
+experiments/records/
+docs/report/.mjx/
