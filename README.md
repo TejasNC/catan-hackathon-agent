@@ -137,8 +137,8 @@ your report.
 Your submissions, their scores and the live leaderboard are on the team portal:
 **https://main.d2sgimrfzis7m5.amplifyapp.com/**
 
-Sign in with your team name, without the `team` prefix and as registered (for example `blanc`, not
-`teamblanc`), and your team leader's full registered phone number.
+Sign in with your team name written the way it appears in your username after `team` (all lower case,
+no spaces: `blanc`, not `teamblanc`), and your team leader's full registered phone number.
 
 ---
 
