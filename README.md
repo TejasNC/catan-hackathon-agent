@@ -132,6 +132,14 @@ queued, scored and done, with its results. A zip can be at most 100 MB. Every up
 team's limit, failed ones included, so test locally with `evaluate` first. The latest PDF you upload is
 your report.
 
+### Team portal
+
+Your submissions, their scores and the live leaderboard are on the team portal:
+**https://main.d2sgimrfzis7m5.amplifyapp.com/**
+
+Sign in with your team name written the way it appears in your username after `team` (all lower case,
+no spaces: `blanc`, not `teamblanc`), and your team leader's full registered phone number.
+
 ---
 
 ## 1. Install
@@ -239,8 +247,8 @@ to 100 MB, and upload it from your team machine:
 ```
 
 Your report goes the same way, as a PDF: `~/upload.sh report.pdf`. Results appear on the team
-portal: sign in with your team name and your team leader's phone number. You get its address during
-the event. PROBLEM_STATEMENT.md, section 4, has the rules.
+portal (see [Team portal](#team-portal) above): sign in with your team name and your team leader's
+phone number. PROBLEM_STATEMENT.md, section 4, has the rules.
 
 Any operating system's zip works: we run your Python files directly, on Linux, with nothing to
 build or start. Two things differ from Windows there: file names are case sensitive (`Weights.pt`
