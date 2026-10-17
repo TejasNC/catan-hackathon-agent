@@ -1,0 +1,279 @@
+<title>How comboop1 Plays</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one readable column, wide tables scroll in place; sea-blue accent, resource chips in the colors of the five tiles */
+:root {
+  --bg: #f6f7f8;
+  --surface: #ffffff;
+  --fg: #1d2329;
+  --muted: #5a6670;
+  --line: #d9dee3;
+  --accent: #1f5f7a;
+  --accent-soft: #e3eef3;
+  --win: #2f6b3a;
+  --wood: #4f7a3a; --brick: #a8502e; --sheep: #8fb35a; --wheat: #c9a227; --ore: #6b7280;
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171b; --surface: #182026; --fg: #e4e9ed; --muted: #9aa7b1; --line: #2c3740;
+    --accent: #7cc0dc; --accent-soft: #1b2f39; --win: #8fd19c;
+    --wood: #7fb06a; --brick: #d97d5a; --sheep: #b5d685; --wheat: #e2c35a; --ore: #a3abb6;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171b; --surface: #182026; --fg: #e4e9ed; --muted: #9aa7b1; --line: #2c3740;
+  --accent: #7cc0dc; --accent-soft: #1b2f39; --win: #8fd19c;
+  --wood: #7fb06a; --brick: #d97d5a; --sheep: #b5d685; --wheat: #e2c35a; --ore: #a3abb6;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 17px; line-height: 1.6;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+main { max-width: 760px; margin: 0 auto; }
+main > * + * { margin-top: 8px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; line-height: 1.2; margin: 0; }
+h1 { font-size: 2.3rem; letter-spacing: -0.01em; }
+h2 { font-size: 1.45rem; margin-top: 36px; padding-top: 18px; border-top: 1px solid var(--line); }
+h2 .n { color: var(--accent); font-variant-numeric: tabular-nums; margin-right: 0.4em; }
+h3 { font-size: 1.05rem; margin-top: 14px; }
+p, ul, ol { margin: 6px 0; max-width: 68ch; }
+li { margin: 4px 0; }
+.lede { font-size: 1.08rem; color: var(--muted); }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+.eq { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; margin: 10px 0; overflow-x: auto; }
+.tw { overflow-x: auto; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+th, td { text-align: left; vertical-align: top; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--f-display); font-weight: 600; font-size: 0.82rem; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr.best td { background: var(--accent-soft); font-weight: 600; }
+.grp { font-family: var(--f-display); font-weight: 600; white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.chip { font-family: var(--f-mono); font-size: 0.82rem; padding: 3px 9px; border-radius: 999px; border: 1px solid currentColor; }
+.c-wood { color: var(--wood); } .c-brick { color: var(--brick); } .c-sheep { color: var(--sheep); }
+.c-wheat { color: var(--wheat); } .c-ore { color: var(--ore); }
+.note { color: var(--muted); font-size: 0.92rem; }
+.callout { border-left: 3px solid var(--accent); padding: 4px 0 4px 14px; margin: 10px 0; }
+mjx-container { color: var(--fg); }
+mjx-container[display="true"] { margin: 0.4em 0 !important; }
+</style>
+
+<main>
+<h1>How <code>comboop1</code> plays Catan</h1>
+<p class="lede"><code>comboop1</code> is two bots merged. The mid-game comes from <strong>combo</strong>: the v5 value function, regime-B weights and a within-turn turn-plan lookahead (<code>cop1_base.py</code>, <code>cop1_core.py</code>). The opening comes from <strong>op1</strong>: a learned opening model plus a draft search (<code>cop1_opener.py</code>, <code>open_model.json</code>, and <code>cop1_mbase.py</code>, plain v5, used to predict the opponent).</p>
+
+<h2><span class="n">1</span>Overview</h2>
+<ol>
+  <li><strong>Sample a world.</strong> The opponent's hand and the dev-card pile are hidden, so the bot draws one full game state consistent with what it can see.</li>
+  <li><strong>Simulate every legal action</strong> on a copy of that world.</li>
+  <li><strong>Score each result</strong> with a hand-built value function \(V\), measured in victory points. Random outcomes are averaged, not sampled.</li>
+  <li><strong>Look a little further</strong> for actions that pay off later: trade → build, knight → robber, road building → 2 roads. In the main phase, the top candidates are played out greedily to the end of the turn.</li>
+  <li><strong>Play the best score.</strong> A turn-plan replaces the 1-ply choice only if it wins by a margin.</li>
+</ol>
+<div class="callout"><p><strong>Budget.</strong> The clock allows about 300 ms + 12.5 ms per decision, roughly 1 s of CPU per game. One copy-and-execute costs about 0.1 ms and one \(V\) call about 0.1 ms, so a decision affords 60–100 simulated actions. A random playout costs 11 ms, which rules out MCTS. What fits is <strong>a good evaluation with depth 1–2 search</strong>.</p></div>
+
+<h2><span class="n">2</span>The value function</h2>
+<div class="eq">\[
+V(s) = \mathrm{Score}_{\text{me}}(s) - k\,\mathrm{Score}_{\text{opp}}(s)
+ + w_{\text{army}}\,\mathrm{clip}(K_{\text{me}}-K_{\text{opp}},\pm 2)
+ + \tfrac{1}{2}\,w_{\text{road}}\,\mathrm{clip}(L_{\text{me}}-L_{\text{opp}},\pm 2)
+\]</div>
+<p>Here \(k = 0.737\), \(w_{\text{army}} = 0.20\), \(w_{\text{road}} = 0.26\). \(K\) is knights played and \(L\) is longest-road length.</p>
+<p>Every term is in <strong>VP units</strong>, so each weight reads as a claim: "a ready-to-build city hand is worth 0.47 VP". Two consequences:</p>
+<ul>
+  <li><strong>Weights can be sanity-checked against the game.</strong> A settlement is +1 VP plus its production, so a hand term above 1 VP is absurd. That check exposed the learned-eval failure in §8.</li>
+  <li><strong>\(k &lt; 1\) means race, don't block.</strong> Costing the opponent 1 VP is worth 0.74 of gaining 1 VP.</li>
+</ul>
+<p>Production fades with the game's <strong>phase</strong>:</p>
+<div class="eq">\[
+\text{phase} = \mathrm{clip}\!\left(\frac{\text{lead VP} - 2}{7},\,0,\,1\right),
+\qquad
+w_p = 0.055\,(1-\text{phase}) + 0.0495\,\text{phase}
+\]</div>
+
+<p>Resource multipliers \(\rho\) after SPSA tuning:</p>
+<div class="chips">
+  <span class="chip c-wood">wood 1.06</span><span class="chip c-brick">brick 1.30</span><span class="chip c-sheep">sheep 1.15</span><span class="chip c-wheat">wheat 1.60</span><span class="chip c-ore">ore 1.58</span>
+</div>
+
+<div class="tw"><table>
+<thead><tr><th>Group</th><th>Term (per player)</th><th>Why it exists</th></tr></thead>
+<tbody>
+<tr><td class="grp">VPs</td><td>me: actual VP, hidden VP cards included; opponent: public VP</td><td>the objective</td></tr>
+<tr><td class="grp">Production</td><td>\(w_p \sum_r \rho_r\,\text{pips}_r\); robber tile excluded; city counts 2×</td><td>future cards; wheat and ore build cities and dev cards</td></tr>
+<tr><td class="grp">Diversity</td><td>\(0.274\,(1-\text{phase})\,n_{\text{res}}\), where \(n_{\text{res}}\) = resources with any pips</td><td>with no one to trade with, a missing resource costs 4:1</td></tr>
+<tr><td class="grp">Expansion</td><td>\(\text{fade}\,(1-\tfrac{\text{phase}}{2})\,(0.019\,e_1 + 0.010\,e_2 + 0.050\,\min(n_b,2))\), only while settlements remain</td><td>\(e_1\): best 2 spots now or 1 road away (×0.8); \(e_2\): best 2 spots 2 roads away; \(n_b\): spots buildable now</td></tr>
+<tr><td class="grp">Hand</td><td>\(0.061\,\min(n,8)\), and \(-0.177\,\lfloor n/2 \rfloor\) if \(n > 7\)</td><td>cards have value; a 7 costs half the hand</td></tr>
+<tr><td></td><td>ready-settle 0.30 · ready-city 0.47 · ready-dev 0.12</td><td>a hand that can build now is worth more than its card count</td></tr>
+<tr><td></td><td>partial: \(0.059 \cdot \tfrac{1}{2}(2 - d_{\text{city}} - d_{\text{settle}})\)</td><td>smooth credit for getting closer to a build</td></tr>
+<tr><td class="grp">Dev cards</td><td>me: \(m_d\,(0.095\,n_{\text{knight}} + 0.18\,n_{\text{other}})\)</td><td>SPSA cut the knight weight from 0.25 to 0.09 so the bot plays knights instead of holding them</td></tr>
+<tr><td></td><td>opponent, per unknown card: \(m_d\,(0.56 \cdot 0.095 + 0.24 \cdot 0.18) + 0.2\)</td><td>expectation over the pile; 0.2 ≈ P(VP card)</td></tr>
+<tr><td class="grp">Army</td><td>\(0.157\,m_d\,\min(K,4)\) plus the army-lead term in \(V\)</td><td>Largest Army is 2 VP that F never contests</td></tr>
+<tr><td class="grp">Ports</td><td>3:1: \(0.193\,(1-\tfrac{\text{phase}}{2})\); 2:1: \(0.010\cdot\text{pips}_r\)</td><td>a 2:1 port is worth only what you produce of its resource</td></tr>
+<tr><td class="grp">Roads</td><td>\(0.040\,\min(L,10)\) plus the road-lead term in \(V\)</td><td>the race for Longest Road (2 VP)</td></tr>
+</tbody></table></div>
+<p class="note">\(m_d\) and fade come from the regime in §3.</p>
+
+<h2><span class="n">3</span>The regime φ: expand early, build late</h2>
+<p>Each player gets \(\varphi \in [0,1]\), computed once per decision at the root and then held fixed:</p>
+<div class="eq">\[
+\varphi = \max\!\left(
+\underbrace{\mathrm{clip}\!\left(\frac{\text{VP} - 4}{4}\right)}_{\text{score}},\;
+\underbrace{1 - \min\!\left(1,\ \frac{\text{best open spot pips}}{10}\right)}_{\text{space}}
+\right)
+\]</div>
+<p>The space part is 1 when no settlements remain. "Best open spot" means reachable with at most one road. Regime B uses \(a = 0.5\), fade 0.35 and dev 0.25, and changes three things:</p>
+<h3>Resource weights</h3>
+<div class="eq">\[
+q = \tfrac{1}{2} + \tfrac{1}{2}\varphi,
+\qquad
+\rho_r \leftarrow \rho_r\left(1 + a\left[(1-q)\,E_r + q\,B_r - 1\right]\right)
+\]
+\[
+E = (1.25,\ 1.25,\ 1,\ 0.9,\ 0.6), \qquad B = (0.6,\ 0.6,\ 0.9,\ 1.35,\ 1.55)
+\]</div>
+<p>At \(\varphi = 1\): wood and brick ×0.80, sheep ×0.95, wheat ×1.18, ore ×1.28.</p>
+<h3>Fade expansion, raise dev cards</h3>
+<div class="eq">\[
+\text{fade} = 1 - 0.35\,\varphi, \qquad m_d = 1 + 0.25\,\varphi
+\]</div>
+
+<h2><span class="n">4</span>Decision procedure</h2>
+<h3>1. One-ply scoring</h3>
+<p>Every legal action \(a\) is executed on a copy of the sampled world and scored \(V(s_a)\).</p>
+<h3>2. Chance nodes in expectation</h3>
+<p><strong>Buying a dev card.</strong> The sampled draw is replaced by the mean over the unseen pile, about 0.30 VP for a fresh pile:</p>
+<div class="eq">\[
+\mathbb{E}[\text{dev}] = \frac{0.095\,m_d\,n_K + 1\cdot n_{VP} + 0.18\,m_d\,n_{\text{other}}}{n}
+\]</div>
+<p><strong>Robber steal.</strong> Scored as \(V + 0.061\,(1+k)\): one card for me, one fewer for them.</p>
+<p>Without this, every dev-card decision would be a coin flip on one sample.</p>
+<h3>3. Two-step follow-ups</h3>
+<ul>
+  <li><strong>Trade, Year of Plenty, Monopoly:</strong> scored as the best city, settlement, dev card or road reachable right afterwards. This covers the top 6 such actions, with up to 12 follow-ups each.</li>
+  <li><strong>Knight:</strong> includes the greedy robber placement it triggers.</li>
+  <li><strong>Road Building:</strong> includes the two greedy free roads.</li>
+</ul>
+<h3>4. Turn-plan lookahead</h3>
+<p>This runs only in the main phase of a turn.</p>
+<ul>
+  <li>Take the top <strong>3</strong> first actions by score, plus the base choice from steps 1–3.</li>
+  <li>Extend each greedily, up to 6 steps, until ending the turn scores best.</li>
+  <li>Score the end-of-turn state, keeping the chance corrections from step 2.</li>
+  <li>Switch from the base choice only if a plan beats it by <strong>0.05 VP</strong>. The margin keeps search noise from overriding the evaluation.</li>
+</ul>
+<h3>5. CPU-safety tiers</h3>
+<div class="tw"><table>
+<thead><tr><th>CPU left</th><th>Behaviour</th></tr></thead>
+<tbody>
+<tr><td class="mono">≥ 0.45 s</td><td>full: steps 1–4</td></tr>
+<tr><td class="mono">0.25–0.45 s</td><td>no turn-plan</td></tr>
+<tr><td class="mono">0.10–0.25 s</td><td><strong>cheap mode</strong>: 1-ply only, no follow-ups</td></tr>
+<tr><td class="mono">&lt; 0.10 s</td><td><strong>panic mode</strong>: no simulation; city &gt; settlement &gt; knight &gt; dev &gt; roll &gt; end</td></tr>
+</tbody></table></div>
+
+<h2><span class="n">5</span>The opening (op1)</h2>
+<p><strong>What is learned.</strong> A logistic model of P(win | the 4 initial settlements), 17 numbers in <code>open_model.json</code>:</p>
+<div class="eq">\[
+P(\text{win}) = \sigma\!\left(\sum_i w_i\,\big(x_i^{\text{me}} - x_i^{\text{opp}}\big) \pm w_{\text{seat}}\right)
+\]</div>
+<div class="tw"><table>
+<thead><tr><th>Feature</th><th class="num">Weight</th></tr></thead>
+<tbody>
+<tr><td>distinct resources</td><td class="num">+0.28</td></tr>
+<tr><td>3:1 port</td><td class="num">+0.24</td></tr>
+<tr><td>min(wheat, ore) pips</td><td class="num">+0.17</td></tr>
+<tr><td>total pips</td><td class="num">+0.16</td></tr>
+<tr><td>min(wood, brick) pips</td><td class="num">+0.12</td></tr>
+<tr><td>2:1 port resource pips</td><td class="num">+0.08</td></tr>
+<tr><td>any single resource</td><td class="num">≤ 0.02</td></tr>
+</tbody></table></div>
+<p>Balance beats raw pips.</p>
+<p><strong>Data.</strong> 16,000 v5-vs-v5 games. Each initial settlement was v5's own pick, or with probability 0.5 a random node among the 10 free nodes with the most pips, so the model sees openings v5 would never choose. Held-out log-loss is 0.600 against 0.693 for seat alone, and AUC is 0.74. Gradient boosting did no better.</p>
+<p><strong>Draft search.</strong> The snake order is P1, P2, P2, P1. Candidates are ordered by v5's pair value.</p>
+<div class="tw"><table>
+<thead><tr><th>Our pick</th><th>Search</th></tr></thead>
+<tbody>
+<tr><td>P1 first</td><td>top 8: predict the opponent's 2 picks, then take our best last pick by the model</td></tr>
+<tr><td>P1 last</td><td>the model's best completion</td></tr>
+<tr><td>P2 first</td><td>all pairs from the top 9; predict the opponent's last pick</td></tr>
+<tr><td>P2 second</td><td>top 15; predict the opponent's last pick</td></tr>
+</tbody></table></div>
+<p><strong>Opponent prediction.</strong> It uses v5's deterministic draft formula (<code>Opener.m_pick</code>, inner loop top 5). That is exact against v5 and a fair proxy for any greedy drafter.</p>
+<p><strong>Clock.</strong> Each search loop stops at \(\min\big(150\ \mathrm{ms},\ (\text{CPU left} - 80\ \mathrm{ms})/2\big)\). Below 120 ms the search is skipped, and any failure falls back to combo's own draft.</p>
+
+<h2><span class="n">6</span>How the weights were obtained, and the results</h2>
+<ol>
+  <li><strong>Hand-set</strong> weights for v1–v3 (INSIGHTS §8).</li>
+  <li><strong>SPSA self-play.</strong> Weights live in log space, \(\theta_k = \theta_k^{0}\,e^{x_k}\). Each iteration draws \(\Delta \in \{\pm 1\}^d\) and plays \(\theta^{\pm} = x \pm 0.25\,\Delta\) against each other on 64 paired games. With \(s\) = the win rate of \(\theta^{+}\):
+  <div class="eq">\[
+  x \leftarrow x + a_t\,(2s - 1)\,\frac{\Delta}{2},
+  \qquad
+  a_t = \frac{0.6}{(1 + t/100)^{0.602}}
+  \]</div>
+  93 iterations gave v5. <strong>F was never an opponent or a teacher</strong>; it is only a held-out measuring stick.</li>
+  <li><strong>Regime B</strong> (\(a = 0.5\), fade 0.35, dev 0.25) was set by hand. An SPSA run with the regime on landed at 0.77 / 0.26 / 0.24 and was no better (0.503 vs v5).</li>
+</ol>
+<p>All results are win rates. The 95 % interval is \(\pm 1.96\sqrt{p(1-p)/n}\), about ±0.025 at \(n = 1000\).</p>
+<div class="tw"><table>
+<thead><tr><th>Bot</th><th>vs F</th><th>Head-to-head</th></tr></thead>
+<tbody>
+<tr><td>v5 (submission #1)</td><td>0.791 (1000 games); leaderboard 0.779; <strong>vs O 0.626</strong></td><td>0.550 vs v3</td></tr>
+<tr><td>combo</td><td>0.793</td><td>0.524 vs v5 (3000 games)</td></tr>
+<tr><td>op1</td><td>0.786 (1600 games; v5 0.761 on the same games)</td><td>0.543 vs v5 (600 games)</td></tr>
+<tr class="best"><td>comboop1</td><td>0.820 (1000 games; combo 0.787 on the same games); official harness 0.805 (200 games), 0 over clock</td><td>0.523 vs combo (1000 games)</td></tr>
+</tbody></table></div>
+
+<h2><span class="n">7</span>Worked example</h2>
+<p class="note">The position is hypothetical; the weights and formulas are the bot's real ones.</p>
+<p><strong>Situation.</strong> I have 5 VP and the opponent has 5 public VP, so \(\text{phase} = 3/7\) and \(w_p = 0.0526\). My best open spot has 9 pips, so \(\varphi = \max(0.25,\ 0.10) = 0.25\), and the regime-adjusted weights are \(\rho \approx (0.98,\ 1.20,\ 1.11,\ 1.75,\ 1.73)\).</p>
+<p><strong>Hand.</strong></p>
+<div class="chips">
+  <span class="chip c-wood">wood 1</span><span class="chip c-brick">brick 0</span><span class="chip c-sheep">sheep 1</span><span class="chip c-wheat">wheat 3</span><span class="chip c-ore">ore 3</span>
+</div>
+<p>That is 8 cards, so a 7 would cost 4 of them. I own a 3:1 port. The table shows only the terms that change; the opponent's score is unchanged.</p>
+<div class="tw"><table>
+<thead><tr><th>Option</th><th class="num">ΔVP</th><th class="num">Δprod</th><th>Δother</th><th class="num">Δhand</th><th class="num">ΔV</th></tr></thead>
+<tbody>
+<tr class="best"><td>Build city (wheat 5, ore 4, sheep 3 pips)</td><td class="num">+1</td><td class="num">+1.00</td><td></td><td class="num">−0.21</td><td class="num">+1.80</td></tr>
+<tr><td>Trade 3 ore → brick, then settle (wood 4, brick 3, wheat 2)</td><td class="num">+1</td><td class="num">+0.58</td><td>+0.16 diversity, −0.15 expansion</td><td class="num">−0.28</td><td class="num">+1.31</td></tr>
+<tr><td>Trade 3 ore → brick only (1-ply)</td><td class="num"></td><td class="num"></td><td></td><td class="num">+0.29</td><td class="num">+0.29</td></tr>
+<tr><td>Buy dev card</td><td class="num"></td><td class="num"></td><td>+0.30 expected dev</td><td class="num">−0.07</td><td class="num">+0.23</td></tr>
+</tbody></table></div>
+<ul>
+  <li><strong>Hand deltas net out the discard risk.</strong> For the city: −0.30 card count, <strong>+0.71</strong> for escaping the 4-card discard, −0.47 ready-city lost, −0.12 ready-dev lost, −0.02 partial.</li>
+  <li><strong>The follow-up step matters.</strong> Alone the trade is worth +0.29; with the settlement after it, +1.31. That is how a 1-ply bot plans trade → build.</li>
+  <li><strong>The city wins</strong> on wheat and ore production, which the regime boosts as φ grows. The dev card's 0.30 VP can't compete with 1 VP plus production.</li>
+  <li><strong>The turn-plan adds nothing here.</strong> After the city the hand is wood 1, sheep 1, wheat 1, and nothing more is affordable, so the bot builds the city.</li>
+</ul>
+
+<h2><span class="n">8</span>Known limits and what did not work</h2>
+<ul>
+  <li><strong>A learned linear eval is a trap.</strong> Logistic regression on outcomes predicts the winner well (78 % accuracy) but wins only 10–19 % as a policy. It values holding city cards above building the city, so the bot hoards. Features that predict winning are not features worth choosing, and fitting on after-states did not fix it.</li>
+  <li><strong>Search on top of a tuned eval adds little.</strong> Opponent-roll expectimax at end of turn scored 0.42–0.46; robber lookahead 0.498; danger mode 0.497; a second SPSA round 0.503; 1v1 community heuristics 0.47–0.51. Once SPSA has tuned the weights, small structural changes get absorbed.</li>
+  <li><strong>Opening limits.</strong> Roads are ignored when an opening is scored. The opponent model is v5's draft, not F's "pips + 4 per resource". Training data is v5 vs v5 only.</li>
+  <li><strong>One sampled world.</strong> Late-game hidden VP-card risk is not averaged.</li>
+  <li><strong>The next real gain needs a different model class</strong>, such as TD(λ) on after-states.</li>
+</ul>
+</main>
+
+<script>
+window.MathJax = {
+  tex: { inlineMath: [["\\(", "\\)"]], displayMath: [["\\[", "\\]"]] },
+  svg: { fontCache: "global" },
+  options: { enableMenu: false }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-svg.js"></script>

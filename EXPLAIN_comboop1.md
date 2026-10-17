@@ -45,7 +45,7 @@ moves with it: $w_p = 0.055(1-\text{phase}) + 0.0495\,\text{phase}$.
 |---|---|---|---|
 | **VPs** | me: actual VP (incl. hidden VP cards); opp: public VP | 1 | the objective |
 | **Production** | $w_p \sum_r \rho_r\,\text{pips}_r$, robber tile excluded, city = 2× | $\rho$ = (1.06, 1.30, 1.15, **1.60**, **1.58**) for wood, brick, sheep, wheat, ore | future cards; wheat/ore build cities and dev cards |
-| **Diversity** | $w_{div}(1-\text{phase})\cdot\#\{r:\text{pips}_r>0\}$ | 0.274 | a 2-player game has nobody to trade with, so a missing resource costs 4:1 |
+| **Diversity** | $w_{div}(1-\text{phase})\cdot n_{res}$, where $n_{res}$ = number of resources with pips $>0$ | 0.274 | a 2-player game has nobody to trade with, so a missing resource costs 4:1 |
 | **Expansion** (only if settlements remain) | $\text{fade}\,(1-\tfrac{\text{phase}}{2})\,(0.019\,e_1 + 0.010\,e_2 + 0.050\min(n_b,2))$ | see left | $e_1$ = best 2 spots buildable now or 1 road away (×0.8); $e_2$ = best 2 spots 2 roads away; $n_b$ = spots buildable now |
 | **Hand** | $0.061\min(n,8)$; $-0.177\lfloor n/2\rfloor$ if $n>7$ | | cards have value, and a 7 costs half the hand |
 | | ready-settle / ready-city / ready-dev bonuses | 0.30 / 0.47 / 0.12 | a hand that can build *now* is worth more than its card count |
@@ -147,7 +147,7 @@ AUC 0.74. Gradient boosting did no better.
 **Opponent prediction.** It uses v5's deterministic draft formula (`Opener.m_pick`, inner loop
 top 5). That is exact against v5 and a reasonable proxy for any greedy drafter.
 
-**Clock.** Each search loop has a deadline of $\min(150\text{ ms}, (\text{cpu\_left}-80\text{ ms})/2)$.
+**Clock.** Each search loop has a deadline of $\min(150\ \mathrm{ms},\ (\mathrm{CPU\ left}-80\ \mathrm{ms})/2)$.
 The search is skipped below 120 ms, and any failure falls back to combo's own draft.
 
 ## 6. How the weights were obtained, and the results
