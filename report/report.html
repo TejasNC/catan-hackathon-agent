@@ -10,7 +10,7 @@ html { font-family: "Bitstream Charter", "Charter", "Liberation Serif", Georgia,
 body { margin: 0; }
 h1, h2, h3 { font-family: "Inter", "Liberation Sans", Arial, sans-serif; color: var(--accent); margin: 0; line-height: 1.2; }
 h1 { font-size: 16pt; }
-h2 { font-size: 12pt; margin-top: 9pt; margin-bottom: 2pt; }
+h2 { break-after: avoid; font-size: 12pt; margin-top: 9pt; margin-bottom: 2pt; }
 h3 { font-size: 11pt; margin-top: 5pt; margin-bottom: 1pt; color: var(--fg); }
 p { margin: 3pt 0; text-align: justify; hyphens: auto; }
 ul, ol { margin: 3pt 0; padding-left: 15pt; }
@@ -32,7 +32,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <body>
 
 <h1>Beating a greedy Catan bot with a better evaluation, not deeper search</h1>
-<p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>comboop1</code></p>
+<p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>bot_cop1fix</code> (comboop1 with two fixes, §5)</p>
 
 <h2>1&nbsp; Problem, budget and what it rules out</h2>
 <p>We play 2-player Catan (no player trades) on catanatron against F (catanatron's <code>ValueFunctionPlayer</code>), O (the organisers' trained bot) and other teams. The only hidden information is the opponent's unplayed development cards. The clock is about 300&nbsp;ms plus 12.5&nbsp;ms of CPU per decision, about 1&nbsp;s per game, in Python on one core.</p>
@@ -63,7 +63,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <li><b>Chance nodes in expectation.</b> Buying a development card is scored with the expectation over the unseen pile, not the one sampled draw: \(\mathbb{E}[\text{dev}]=\sum_c \frac{n_c}{n}\,v(c)\approx0.30\)&nbsp;VP. A robber steal counts as \(+1\) card for us and \(-1\) for them.</li>
 <li><b>Two-step follow-ups</b> for actions whose payoff is delayed. A trade, Year of Plenty or Monopoly is valued by the best build it enables; a Knight by its robber move; Road Building by its two roads.</li>
 <li><b>Turn plan.</b> In the main phase we take the top 3 first actions and play each greedily to the end of the turn. We switch from the one-ply choice only if a plan wins by more than 0.05&nbsp;VP.</li>
-<li><b>Clock tiers.</b> The bot drops the turn plan below 0.45&nbsp;s left, the follow-ups below 0.25&nbsp;s, and all simulation below 0.10&nbsp;s, where it uses fixed build priorities.</li>
+<li><b>Clock tiers.</b> The bot drops the turn plan below 0.45&nbsp;s left (0.9&nbsp;s in the submitted version, §5), the follow-ups below 0.25&nbsp;s, and all simulation below 0.10&nbsp;s, where it uses fixed build priorities.</li>
 </ol>
 
 <h3>3.3 A learned opening</h3>
@@ -83,7 +83,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <ul>
 <li><b>Hand-built features, tuned by self-play, instead of learned end-to-end.</b> Published from-scratch RL agents for Catan lose even to random play, and a day is too short. A linear evaluation (Buro's Othello approach) is cheap to evaluate, which matters at 0.1&nbsp;ms per call.</li>
 <li><b>SPSA on win rate, against ourselves only.</b> Win rate is a noisy, non-differentiable objective, and SPSA needs just two evaluations per step, whatever the dimension. Weights live in log space, \(\theta_k=\theta^0_k e^{x_k}\). Each iteration plays \(\theta^\pm=x\pm0.25\Delta\), \(\Delta\in\{\pm1\}^d\), on 64 paired games, then updates \(x\leftarrow x+a_t(2s-1)\Delta/2\), where \(s\) is \(\theta^+\)'s win rate. 93 iterations took about 12 minutes on 4 cores. <b>F was never an opponent, teacher or selection signal.</b> It was a held-out measuring stick only, so our F number is not overfitted.</li>
-<li><b>Selection on paired head-to-heads.</b> In these, both bots play the same boards and dice from both seats; we required ≥ 300 games and about 2 SE before adopting a change.</li>
+<li><b>Paired head-to-heads for selection.</b> Both bots play the same boards and dice from both seats; we required ≥ 300 games and about 2 SE to adopt a change.</li>
 <li><b>Expectation at chance nodes.</b> Scoring on a single sample turns the decision into a coin flip. The turn plan proved it: scored on the sampled dev draw, it lost 0.460 against its parent; scored in expectation, it won 0.510–0.530.</li>
 </ul>
 
@@ -99,13 +99,13 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <tr><td>combo</td><td>v5 + regime + turn plan</td><td class="r">0.787 ± 0.025</td><td class="r">1000</td><td class="r">0.524 ± 0.018</td></tr>
 <tr><td>op1</td><td>v5 + learned opening</td><td class="r">0.786 ± 0.020</td><td class="r">1600</td><td class="r">0.543 ± 0.040</td></tr>
 <tr class="hl"><td>comboop1</td><td>combo + learned opening</td><td class="r">0.820 ± 0.024</td><td class="r">1000</td><td class="r">0.523 ± 0.031</td></tr>
+<tr><td>cop1fix</td><td>+ Monopoly only after rolling; turn plan only with ≥ 0.9&nbsp;s left</td><td class="r">0.770 ± 0.041</td><td class="r">400</td><td class="r">0.503 ± 0.035*</td></tr>
 </tbody></table>
-<p class="cap">Table 1. Progression. In the "h2h vs parent" column, v5's parent is v3, combo's and op1's is v5, and comboop1's is combo. On the same 1000 seeds, comboop1 beat F 0.820 and combo 0.787; on op1's 1600 games, op1 0.786 and v5 0.761.</p>
+<p class="cap">Table 1. Progression. In the "h2h vs parent" column, v5's parent is v3, combo's and op1's is v5, and comboop1's is combo. On the same 1000 seeds, comboop1 beat F 0.820 and combo 0.787; on op1's 1600 games, op1 0.786 and v5 0.761. *Measured with the Monopoly fix only, 800 games.</p>
 
 <p><b>Other results.</b></p>
 <ul>
-<li><b>Leaderboard (submission 1, v5):</b> vs F 0.779 ± 0.026 and vs O 0.626 ± 0.030, with 0 games over the clock. Our local F estimate was 0.787–0.791. [TODO: leaderboard numbers for comboop1.]</li>
-<li><b>Official harness, comboop1:</b> 0.805 vs F (200 games), 0 games over the clock.</li>
+<li><b>Leaderboard, organisers' machine (1000 games each):</b> v5 scored 0.779 ± 0.026 vs F and 0.626 ± 0.030 vs O. comboop1 scored 0.813 ± 0.024 vs F and <b>0.658 ± 0.029 vs O</b>, at 277&nbsp;ms mean CPU per game, with 0 games over the clock and 0 faults. Our local F estimates (0.791 and 0.820) matched within the intervals. [TODO: leaderboard numbers for bot_cop1fix.]</li>
 <li><b>Robustness of v5 (h2h):</b> it beats catanatron AlphaBeta-2 0.883 (60 games, unclocked) and WeightedRandom 1.000.</li>
 <li><b>A second strong benchmark:</b> our re-implementation of the organisers' "F + regime" bot beats F 0.570. v5 beats it 0.747. The difficulty ladder is consistent: F, then F+regime, then O.</li>
 </ul>
@@ -123,6 +123,8 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 </tbody></table>
 <p class="cap">Table 2. Negative and neutral results. The adaptive bandit scored 0.805 vs F, 400 games, clocked. It was not adopted because it is not distinguishable from comboop1 at that sample size.</p>
 
+<p><b>Auditing decisions instead of only games.</b> To find flaws that win rates average away, we audited about 950 sampled v5 decisions. For each candidate action we ran 24 Monte-Carlo rollouts with common dice and computed a split-half unbiased regret. Robber moves, discards, end of turn, trades, builds and knight timing all showed ≈ 0 regret (all within ±2&nbsp;points). One flaw was clear: <b>playing Monopoly before rolling cost 7.3 ± 5.7 points</b>. Rolling first adds information, while a pre-roll Monopoly swells the hand before a possible 7. The fix never hurt (0.503 vs comboop1, 800 games).</p>
+<p><b>Red-teaming the clock.</b> In 700 clocked games with three adversarial bots, a separate session found 0 errors and no exploit. However, 2 of 500 very long games ran out of clock: the turn plan had no deadline and took up to 420&nbsp;ms per decision at 0.45&nbsp;s left. The submitted bot plans only with ≥ 0.9&nbsp;s left (mean CPU 300&nbsp;ms vs 427&nbsp;ms). It scored 0.770 ± 0.041 vs F in 400 games. That is below comboop1's 0.820, close to two standard errors, so the clock fix may have cost some strength. We chose clock safety over that possible gain.</p>
 <h2>6&nbsp; Insights</h2>
 <ol>
 <li><b>A model that predicts well is not a model that decides well.</b> Logistic regression of the winner on our own features had 78&nbsp;% held-out accuracy and log-loss 0.445. As a greedy policy it won only 10&nbsp;% against the hand-tuned bot. The fitted weights show why. "Holding the cards for a city" earned +1.48&nbsp;VP, more than building the city gains. The bot hoarded and never built, and played knights even got a negative weight because they are collinear with army lead. Refitting on after-states only lifted it to 0.19, so the fix is not more outcome regression. The fix is a signal at the decision level: rank the chosen after-state against its siblings, or bootstrap as in TD learning. Any learned critic used greedily has this problem.</li>
@@ -130,7 +132,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <li><b>Evaluation beats depth when compute is the constraint.</b> A better one-ply evaluation took us from 50&nbsp;% to 79&nbsp;% against F at F's own CPU cost. Search on F's evaluation gave 57.5&nbsp;%, and none of our three search extensions on top of v5 cleared 2&nbsp;SE.</li>
 <li><b>Exploit what the opponent's objective cannot see.</b> Largest Army and hidden VP cards are VP sources F never contests, and they show up in almost all of v5's wins.</li>
 <li><b>Once self-play has tuned an evaluation, small structural changes get absorbed.</b> A second SPSA round, a regime and race weights each landed within ±2&nbsp;SE of v5. Two changes of +1.7&nbsp;SE each did not add up (0.508). New information, such as the learned opening, still helped.</li>
-<li><b>Measurement discipline.</b> SPSA's own θ⁺-vs-θ⁻ score sits at 0.5 by construction, so progress must be measured against a frozen parent. At n = 400 the interval is ±4.4 points, and several "improvements" seen at n = 40–60 vanished at n = 300. Paired boards and a held-out opponent were necessary.</li>
+<li><b>Measurement discipline.</b> SPSA's own θ⁺-vs-θ⁻ score sits at 0.5 by construction, so progress must be measured against a frozen parent. At n = 400 the interval is ±4.4 points, and several "improvements" seen at n = 40–60 vanished at n = 300. Paired boards and a held-out opponent were necessary. Audits behave the same way: a robber-move regret of +2.9 points at n = 35 vanished at n = 247.</li>
 </ol>
 
 <h2>7&nbsp; Limitations and next steps</h2>
