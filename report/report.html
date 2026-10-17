@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Team bakarwadi report</title>
 <style>
-@page { size: A4; margin: 13mm 16mm 13mm 16mm; }
+@page { size: A4; margin: 15mm 16mm 15mm 16mm; }
 :root { --fg: #111; --muted: #444; --line: #bbb; --accent: #1f4e79; }
 html { font-family: "Bitstream Charter", "Charter", "Liberation Serif", Georgia, serif; font-size: 11pt; line-height: 1.32; color: var(--fg); }
 body { margin: 0; }
@@ -32,13 +32,12 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <h1>Beating a greedy Catan bot with a better evaluation, not deeper search</h1>
 <p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>comboop1</code></p>
 
-<h2>1&nbsp; The problem and the budget</h2>
-<p>We had to build a bot for 2-player Catan, without trades between players, on the catanatron engine. It plays against F (catanatron's <code>ValueFunctionPlayer</code>), against O (the organisers' trained bot) and against the other teams. The only thing hidden from us is the opponent's unplayed development cards. Their resource hand we can work out exactly: there are 19 cards of each resource, so their hand is 19 minus the bank minus ours. The clock gives about 300&nbsp;ms plus 12.5&nbsp;ms of CPU per decision, so roughly one second for a whole game.</p>
+<h2>1&nbsp; What the clock allows</h2>
 <p>Before deciding anything, we timed the basic operations. Copying the game and playing one move costs 0.10&nbsp;ms, and scoring a position costs 0.09&nbsp;ms. Playing one random game to the end costs 11&nbsp;ms. So in one decision we can try maybe 60 to 100 moves, and we cannot afford even one random playout. This killed MCTS for us straight away, and deep alpha-beta also.</p>
 <p>We still checked the search route on catanatron's own AlphaBeta bot, which uses F's scoring. At depth 2 with no clock it beat F only 57.5&nbsp;% of the time in 40 games. Its same-turn version won 8&nbsp;% under the clock, because it keeps running out of time. So we decided early that our time should go into scoring positions well, and that any search would be very shallow.</p>
 
 <h2>2&nbsp; First we studied F</h2>
-<p>We read F's code. F scores a position as public VPs times 3·10<sup>14</sup>, plus production times 10<sup>8</sup>, plus everything else at weights of at most 10<sup>4</sup>. In practice this is a strict priority order: F grabs any visible point immediately, and production only breaks ties. F also counts only <i>public</i> points, so a hidden VP card or a knight still in hand is worth almost nothing to it.</p>
+<p>F's weights (VPs 3·10<sup>14</sup>, production 10<sup>8</sup>, the rest at most 10<sup>4</sup>) make it a strict priority order: it grabs any visible point immediately. It counts only <i>public</i> points, so a hidden VP card or a knight still in hand is worth almost nothing to it.</p>
 <p>We ran 60 F-vs-F games to see what this does to its play. The winner held Largest Army in only 3&nbsp;% of games. Players bought 2.3 development cards per game, and 17 cards per game were lost to sevens, because F hoards. That told us where the free points were. F never fights for Largest Army (2&nbsp;VP) and does not care about VP cards. Our v5 bot ended up holding Largest Army in about 89&nbsp;% of its wins against F, with about 1.5 hidden VP cards per win.</p>
 
 <h2>3&nbsp; How our bot works</h2>
@@ -59,7 +58,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <p>When \(\varphi\) is near 0, wood and brick count for more, for roads and settlements. Near 1, wheat and ore count for more (×1.2–1.3), for cities and dev cards. The expansion terms fade by \(1-0.35\varphi\), and dev cards gain by \(1+0.25\varphi\).</p>
 
 <h3>3.2 Choosing a move</h3>
-<p>For each decision, we sample one full game state that agrees with what we can see. We play every legal move on a copy of it, score the result and pick the best. Four things on top of this made a real difference:</p>
+<p>For each decision, we sample one world with <code>sample_world</code>. We play every legal move on a copy of it, score the result and pick the best. Four things on top of this made a real difference:</p>
 <ol>
 <li><b>Averaging luck.</b> When the simulator buys a dev card, it draws one random card. If that card happens to be a VP card, buying looks brilliant; if it is a knight, buying looks average. The decision becomes a coin toss, so we use the average value of the cards still unseen, about 0.30&nbsp;VP. A robber steal we count as one card gained and one card lost, not as the card the simulator happened to pick.</li>
 <li><b>Looking one step past moves that pay later.</b> A 4:1 trade makes our hand smaller, so on its own it scores lower. So we score a trade by the best build it allows right after. A knight is scored together with its robber move, and Road Building with its two free roads.</li>
@@ -79,7 +78,7 @@ mjx-container[display="true"] { margin: 3pt 0 !important; }
 <p>We kept F out of all tuning and all choosing. We never trained against it and never picked a version because it did better against F. It was only the final measuring stick, like a test set. To choose between versions, we played them head to head on the same boards and dice, with seats swapped. This removes board luck, so we need far fewer games. We did not believe a change until it had at least 300 games and about 2 standard errors.</p>
 
 <h2>5&nbsp; What we tried, and what happened</h2>
-<p>All the F numbers below come from the official harness, with the clock on, seats alternating and fixed seeds. The 95&nbsp;% interval is \(\pm1.96\sqrt{p(1-p)/n}\). "h2h" is the head-to-head win rate against the previous version.</p>
+<p>F numbers are from the evaluation harness with the clock on and fixed seeds; intervals are 95&nbsp;%. "h2h" is the head-to-head win rate against the previous version.</p>
 <table>
 <thead><tr><th>Version</th><th>What changed</th><th class="r">vs F</th><th class="r">n</th><th class="r">h2h vs parent</th></tr></thead>
 <tbody>
