@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <title>Team bakarwadi report</title>
 <style>
-@page { size: A4; margin: 16mm 17mm 16mm 17mm; }
+@page { size: A4; margin: 13mm 16mm 13mm 16mm; }
 :root { --fg: #111; --muted: #444; --line: #bbb; --accent: #1f4e79; }
 html { font-family: "Bitstream Charter", "Charter", "Liberation Serif", Georgia, serif; font-size: 11pt; line-height: 1.32; color: var(--fg); }
 body { margin: 0; }
 h1, h2, h3 { font-family: "Inter", "Liberation Sans", Arial, sans-serif; color: var(--accent); margin: 0; line-height: 1.2; }
 h1 { font-size: 16pt; }
 h2 { break-after: avoid; font-size: 12pt; margin-top: 9pt; margin-bottom: 2pt; }
-h3 { font-size: 11pt; margin-top: 5pt; margin-bottom: 1pt; color: var(--fg); }
+h3 { break-after: avoid; font-size: 11pt; margin-top: 5pt; margin-bottom: 1pt; color: var(--fg); }
 p { margin: 3pt 0; text-align: justify; hyphens: auto; }
 ul, ol { margin: 3pt 0; padding-left: 15pt; }
 li { margin: 1.5pt 0; }
@@ -21,126 +21,117 @@ th, td { padding: 1.6pt 5pt; border-bottom: 0.5pt solid var(--line); text-align:
 th { font-family: "Inter", "Liberation Sans", Arial, sans-serif; font-weight: 600; border-bottom: 1pt solid var(--fg); }
 td.r, th.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 tr.hl td { font-weight: bold; }
-.cap { font-size: 11pt; color: var(--muted); margin: 1pt 0 5pt; }
+.cap { color: var(--muted); margin: 1pt 0 5pt; }
 code { font-family: "DejaVu Sans Mono", monospace; font-size: 9.5pt; }
-.eq { margin: 4pt 0; }
 mjx-container[display="true"] { margin: 3pt 0 !important; }
-.refs { font-size: 11pt; }
 .refs li { margin: 1pt 0; }
 </style>
 </head>
 <body>
 
 <h1>Beating a greedy Catan bot with a better evaluation, not deeper search</h1>
-<p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>bot_cop1fix</code> (comboop1 with two fixes, §5)</p>
+<p class="sub">Team bakarwadi · 2-player Catan hackathon, 17 October 2026 · submitted agent: <code>bot_cop1fix</code></p>
 
-<h2>1&nbsp; Problem, budget and what it rules out</h2>
-<p>We play 2-player Catan (no player trades) on catanatron against F (catanatron's <code>ValueFunctionPlayer</code>), O (the organisers' trained bot) and other teams. The only hidden information is the opponent's unplayed development cards. The clock is about 300&nbsp;ms plus 12.5&nbsp;ms of CPU per decision, about 1&nbsp;s per game, in Python on one core.</p>
-<p>Before designing anything we measured the primitives (<code>tools/profile_prims.py</code>). Copying a state and executing one action costs 0.10&nbsp;ms, a value-function call 0.09&nbsp;ms, and one random playout to the end of the game <b>11&nbsp;ms</b>. A decision can therefore afford 60–100 simulated actions, and at most one random playout. This budget shaped every later decision: MCTS with rollouts and deep alpha-beta do not fit. Our own reruns agreed. catanatron's AlphaBeta at depth 2, unclocked, beat F in only 57.5&nbsp;% of 40 games, and its same-turn variant won 8&nbsp;% under the clock. We concluded that the lever is <b>the quality of a one-ply evaluation</b>, with only very shallow search.</p>
+<h2>1&nbsp; The problem and the budget</h2>
+<p>We had to build a bot for 2-player Catan, without trades between players, on the catanatron engine. It plays against F (catanatron's <code>ValueFunctionPlayer</code>), against O (the organisers' trained bot) and against the other teams. The only thing hidden from us is the opponent's unplayed development cards. Their resource hand we can work out exactly: there are 19 cards of each resource, so their hand is 19 minus the bank minus ours. The clock gives about 300&nbsp;ms plus 12.5&nbsp;ms of CPU per decision, so roughly one second for a whole game.</p>
+<p>Before deciding anything, we timed the basic operations. Copying the game and playing one move costs 0.10&nbsp;ms, and scoring a position costs 0.09&nbsp;ms. Playing one random game to the end costs 11&nbsp;ms. So in one decision we can try maybe 60 to 100 moves, and we cannot afford even one random playout. This killed MCTS for us straight away, and deep alpha-beta also.</p>
+<p>We still checked the search route on catanatron's own AlphaBeta bot, which uses F's scoring. At depth 2 with no clock it beat F only 57.5&nbsp;% of the time in 40 games. Its same-turn version won 8&nbsp;% under the clock, because it keeps running out of time. So we decided early that our time should go into scoring positions well, and that any search would be very shallow.</p>
 
-<h2>2&nbsp; Understanding the opponent first</h2>
-<p>F scores a state lexicographically: public VPs at weight 3·10<sup>14</sup>, production at 10<sup>8</sup>, everything else at most 10<sup>4</sup>. In 60 F-vs-F games, winners got 0.03 Largest Army titles and 0.17 VP cards per game. Players bought 2.3 development cards per game and lost 17 cards per game to sevens. F cannot see what its objective omits: hidden VP cards, the value of knights before they are played, and hand-size risk. Two VP sources are left uncontested: Largest Army (2&nbsp;VP) and VP cards. Our v5 bot holds Largest Army in about 89&nbsp;% of its wins against F, plus about 1.5 hidden VP cards per won game.</p>
+<h2>2&nbsp; First we studied F</h2>
+<p>We read F's code. F scores a position as public VPs times 3·10<sup>14</sup>, plus production times 10<sup>8</sup>, plus everything else at weights of at most 10<sup>4</sup>. In practice this is a strict priority order: F grabs any visible point immediately, and production only breaks ties. F also counts only <i>public</i> points, so a hidden VP card or a knight still in hand is worth almost nothing to it.</p>
+<p>We ran 60 F-vs-F games to see what this does to its play. The winner held Largest Army in only 3&nbsp;% of games. Players bought 2.3 development cards per game, and 17 cards per game were lost to sevens, because F hoards. That told us where the free points were. F never fights for Largest Army (2&nbsp;VP) and does not care about VP cards. Our v5 bot ended up holding Largest Army in about 89&nbsp;% of its wins against F, with about 1.5 hidden VP cards per win.</p>
 
-<h2>3&nbsp; Method</h2>
-<h3>3.1 A value function in victory-point units</h3>
-<div class="eq">\[ V(s) = S_{\text{me}}(s) - k\,S_{\text{opp}}(s) + w_A\,\mathrm{clip}(K_{\text{me}}-K_{\text{opp}},\pm2) + \tfrac{1}{2}w_L\,\mathrm{clip}(L_{\text{me}}-L_{\text{opp}},\pm 2) \]</div>
-<p>Here \(K\) counts knights played and \(L\) is road length. Each player's score \(S\) is a sum of hand-designed features, and <b>every weight is in VP units</b>. The terms are:</p>
+<h2>3&nbsp; How our bot works</h2>
+<h3>3.1 The scoring formula</h3>
+<p>The bot judges a position with one formula. It is our score minus a fraction of the opponent's score, plus small bonuses for being ahead in the knight race and the road race:</p>
+<div>\[ V(s) = S_{\text{me}}(s) - k\,S_{\text{opp}}(s) + w_A\,\mathrm{clip}(K_{\text{me}}-K_{\text{opp}},\pm2) + \tfrac{1}{2}w_L\,\mathrm{clip}(L_{\text{me}}-L_{\text{opp}},\pm 2) \]</div>
+<p>Here \(K\) is knights played and \(L\) is road length. Each player's score \(S\) adds up a few simple terms:</p>
 <ul>
-<li>VPs: my true VPs; the opponent's public VPs plus 0.2 per unknown development card.</li>
-<li>Production: pips per resource, robber-aware, worth less as the leader's VP rises.</li>
-<li>Resource diversity, port value, and expansion reach (best spots 0, 1 or 2 roads away).</li>
-<li>Hand terms: card count, discard risk above 7 cards, "ready to build" bonuses.</li>
-<li>Development cards in hand and played knights.</li>
+<li>points: our true VPs; for the opponent, public VPs plus 0.2 for each unknown dev card, since 5 of the 25 cards are VP cards;</li>
+<li>production in pips per resource, with the robber's tile counted as zero. It is worth less as the game goes on, because fewer turns are left to collect;</li>
+<li>how many different resources we produce, the ports we hold, and how many good empty spots our roads can reach;</li>
+<li>our hand: what the cards are worth, a penalty above 7 cards, and a bonus when we hold exactly what a build needs;</li>
+<li>development cards in hand and knights already played.</li>
 </ul>
-<p>VP units make each weight a checkable claim, such as "a hand that can build a city now is worth 0.47&nbsp;VP". They also make errors visible: any term that values a <i>state</i> above the +1&nbsp;VP of the <i>action</i> it enables is wrong (§6). The opponent weight \(k=0.74\lt1\) means "race, don't block".</p>
-<p>A <b>regime</b> \(\varphi\in[0,1]\) per player moves the weights from expanding to building:</p>
-<div class="eq">\[ \varphi=\max\!\Big(\mathrm{clip}\big(\tfrac{\mathrm{VP}-4}{4}\big),\,1-\min\big(1,\tfrac{\text{best open spot pips}}{10}\big)\Big) \]</div>
-<p>As \(\varphi\) rises, wood and brick lose weight and wheat and ore gain it (×0.8 and ×1.2–1.3 at \(\varphi=1\)). Expansion terms fade by \(1-0.35\varphi\), and dev-card terms grow by \(1+0.25\varphi\).</p>
+<p>We wrote every weight in victory points on purpose. A hand that can build a city right now is worth 0.47&nbsp;VP, for example. That way we could look at any weight and ask whether it made sense. A state that is only a step towards a +1&nbsp;VP build should never be worth more than 1&nbsp;VP. This simple check later caught a big mistake (Section 6). The opponent weight came out at \(k=0.74\), below 1. Hurting the opponent by a point is worth less to us than gaining a point ourselves, so the bot races instead of blocking.</p>
+<p>A good human player expands first and upgrades later. We gave the bot a number \(\varphi\) between 0 and 1 for how far into this shift each player is:</p>
+<div>\[ \varphi=\max\!\Big(\mathrm{clip}\big(\tfrac{\mathrm{VP}-4}{4}\big),\,1-\min\big(1,\tfrac{\text{best open spot pips}}{10}\big)\Big) \]</div>
+<p>When \(\varphi\) is near 0, wood and brick count for more, for roads and settlements. Near 1, wheat and ore count for more (×1.2–1.3), for cities and dev cards. The expansion terms fade by \(1-0.35\varphi\), and dev cards gain by \(1+0.25\varphi\).</p>
 
-<h3>3.2 Decision procedure</h3>
-<p>We sample one world consistent with the observation, simulate <i>every</i> legal action on a copy, and pick the best \(V\). Four refinements matter.</p>
+<h3>3.2 Choosing a move</h3>
+<p>For each decision, we sample one full game state that agrees with what we can see. We play every legal move on a copy of it, score the result and pick the best. Four things on top of this made a real difference:</p>
 <ol>
-<li><b>Chance nodes in expectation.</b> Buying a development card is scored with the expectation over the unseen pile, not the one sampled draw: \(\mathbb{E}[\text{dev}]=\sum_c \frac{n_c}{n}\,v(c)\approx0.30\)&nbsp;VP. A robber steal counts as \(+1\) card for us and \(-1\) for them.</li>
-<li><b>Two-step follow-ups</b> for actions whose payoff is delayed. A trade, Year of Plenty or Monopoly is valued by the best build it enables; a Knight by its robber move; Road Building by its two roads.</li>
-<li><b>Turn plan.</b> In the main phase we take the top 3 first actions and play each greedily to the end of the turn. We switch from the one-ply choice only if a plan wins by more than 0.05&nbsp;VP.</li>
-<li><b>Clock tiers.</b> The bot drops the turn plan below 0.45&nbsp;s left (0.9&nbsp;s in the submitted version, §5), the follow-ups below 0.25&nbsp;s, and all simulation below 0.10&nbsp;s, where it uses fixed build priorities.</li>
+<li><b>Averaging luck.</b> When the simulator buys a dev card, it draws one random card. If that card happens to be a VP card, buying looks brilliant; if it is a knight, buying looks average. The decision becomes a coin toss, so we use the average value of the cards still unseen, about 0.30&nbsp;VP. A robber steal we count as one card gained and one card lost, not as the card the simulator happened to pick.</li>
+<li><b>Looking one step past moves that pay later.</b> A 4:1 trade makes our hand smaller, so on its own it scores lower. So we score a trade by the best build it allows right after. A knight is scored together with its robber move, and Road Building with its two free roads.</li>
+<li><b>Planning the rest of the turn.</b> We take the top 3 moves and play each one forward greedily until the turn ends. We switch away from the normal choice only if a plan wins by more than 0.05&nbsp;VP, because these plans are noisier.</li>
+<li><b>Staying inside the clock.</b> As CPU runs low, the bot drops the turn plan, then the look-ahead step. Below 0.1&nbsp;s left it stops simulating and follows a fixed order: city, settlement, knight, dev card.</li>
 </ol>
 
 <h3>3.3 A learned opening</h3>
-<p>The four initial settlements fix most of a 2-player game's production, and the first decision has 300&nbsp;ms of budget. We fit a logistic model of \(P(\text{win}\mid\text{opening})\) on 16,000 self-play games (17 weights):</p>
-<div class="eq">\[ P(\text{win}) = \sigma\Big(\textstyle\sum_i w_i\,(x^{\text{me}}_i-x^{\text{opp}}_i)\pm w_{\text{seat}}\Big) \]</div>
-<p>In those games, each settlement was the bot's own pick, or with probability 0.5 a random node among the ten free nodes with the most pips. The random picks show the model openings the bot would never choose.</p>
-<p>The model reached a held-out AUC of 0.74 and log-loss 0.600, against 0.693 for seat alone. Gradient boosting did no better. Its largest weights favour balance over raw production:</p>
-<ul>
-<li>distinct resources +0.28;</li>
-<li>a 3:1 port +0.24;</li>
-<li>min(wheat, ore) pips +0.17;</li>
-<li>total pips +0.16.</li>
-</ul>
-<p>At each pick we search the rest of the snake draft (P1, P2, P2, P1). The opponent's picks are predicted with our previous deterministic draft formula, and the four final settlements are scored with the model. The search stops at a CPU deadline.</p>
+<p>In 2-player Catan, the four starting settlements decide most of a player's production for the whole game, and the first decision gets 300&nbsp;ms. So this was a good place to use learning. We fit a logistic regression for the chance of winning given the four settlements, with 17 weights:</p>
+<div>\[ P(\text{win}) = \sigma\Big(\textstyle\sum_i w_i\,(x^{\text{me}}_i-x^{\text{opp}}_i)\pm w_{\text{seat}}\Big) \]</div>
+<p>We generated 16,000 games of our bot against itself. In half of the placements we picked the settlement at random from the ten richest free spots, so that the model sees openings our bot would never choose. On held-out games, the model reached an AUC of 0.74 and a log-loss of 0.600; knowing only the seat gives 0.693. Gradient boosting did no better, so we kept the linear model.</p>
+<p>The biggest weights were for the number of distinct resources (+0.28), a 3:1 port (+0.24), min(wheat, ore) pips (+0.17) and total pips (+0.16). Balance matters more than raw production. With nobody to trade with, a missing resource hurts every turn.</p>
+<p>The placement order is P1, P2, P2, P1. At each of our picks, the bot tries its best candidate spots. For each candidate it predicts the opponent's next pick with our older hand-written formula, finishes the draft, and scores the final four settlements with the model. A CPU deadline stops this search well before the clock.</p>
 
-<h2>4&nbsp; Design decisions and why</h2>
-<ul>
-<li><b>Hand-built features, tuned by self-play, instead of learned end-to-end.</b> Published from-scratch RL agents for Catan lose even to random play, and a day is too short. A linear evaluation (Buro's Othello approach) is cheap to evaluate, which matters at 0.1&nbsp;ms per call.</li>
-<li><b>SPSA on win rate, against ourselves only.</b> Win rate is a noisy, non-differentiable objective, and SPSA needs just two evaluations per step, whatever the dimension. Weights live in log space, \(\theta_k=\theta^0_k e^{x_k}\). Each iteration plays \(\theta^\pm=x\pm0.25\Delta\), \(\Delta\in\{\pm1\}^d\), on 64 paired games, then updates \(x\leftarrow x+a_t(2s-1)\Delta/2\), where \(s\) is \(\theta^+\)'s win rate. 93 iterations took about 12 minutes on 4 cores. <b>F was never an opponent, teacher or selection signal.</b> It was a held-out measuring stick only, so our F number is not overfitted.</li>
-<li><b>Paired head-to-heads for selection.</b> Both bots play the same boards and dice from both seats; we required ≥ 300 games and about 2 SE to adopt a change.</li>
-<li><b>Expectation at chance nodes.</b> Scoring on a single sample turns the decision into a coin flip. The turn plan proved it: scored on the sampled dev draw, it lost 0.460 against its parent; scored in expectation, it won 0.510–0.530.</li>
-</ul>
+<h2>4&nbsp; How we tuned and tested</h2>
+<p>We tuned the weights with SPSA, by self-play only. Win rate has no gradient, and SPSA needs only two bots per step, however many weights there are. We keep the weights as logs, \(\theta_k=\theta^0_k e^{x_k}\), so every nudge is a percentage. Each step pushes all weights at once in a random direction \(\Delta\in\{\pm1\}^d\). One bot gets \(x+0.25\Delta\) and the other \(x-0.25\Delta\), and they play 64 paired games against each other. If \(s\) is the "+" bot's win rate, we update \(x\leftarrow x+a_t(2s-1)\Delta/2\). 93 steps took about 12 minutes on 4 cores.</p>
+<p>We kept F out of all tuning and all choosing. We never trained against it and never picked a version because it did better against F. It was only the final measuring stick, like a test set. To choose between versions, we played them head to head on the same boards and dice, with seats swapped. This removes board luck, so we need far fewer games. We did not believe a change until it had at least 300 games and about 2 standard errors.</p>
 
-<h2>5&nbsp; Experiments</h2>
-<p>Every "vs F" number uses the official harness (<code>catan_kit.evaluate</code>, split over processes, CPU clock enforced, seats alternated, fixed seeds). The 95&nbsp;% interval is \(\pm1.96\sqrt{p(1-p)/n}\). Head-to-head (h2h) numbers are in-process self-play on paired boards.</p>
+<h2>5&nbsp; What we tried, and what happened</h2>
+<p>All the F numbers below come from the official harness, with the clock on, seats alternating and fixed seeds. The 95&nbsp;% interval is \(\pm1.96\sqrt{p(1-p)/n}\). "h2h" is the head-to-head win rate against the previous version.</p>
 <table>
-<thead><tr><th>Version</th><th>Change</th><th class="r">vs F</th><th class="r">n</th><th class="r">h2h vs parent</th></tr></thead>
+<thead><tr><th>Version</th><th>What changed</th><th class="r">vs F</th><th class="r">n</th><th class="r">h2h vs parent</th></tr></thead>
 <tbody>
-<tr><td>v1</td><td>value function + trade→build follow-up</td><td class="r">0.635 ± 0.067</td><td class="r">200</td><td class="r"></td></tr>
-<tr><td>v2</td><td>+ knight / road-building follow-up</td><td class="r">0.683 ± 0.046</td><td class="r">400</td><td class="r"></td></tr>
-<tr><td>v3</td><td>+ snake-draft opening lookahead</td><td class="r">0.726 ± 0.028</td><td class="r">1000</td><td class="r">0.537 ± 0.056</td></tr>
-<tr><td>v5</td><td>+ SPSA self-play weights (submission 1)</td><td class="r">0.791 ± 0.025</td><td class="r">1000</td><td class="r">0.550 ± 0.049</td></tr>
-<tr><td>combo</td><td>v5 + regime + turn plan</td><td class="r">0.787 ± 0.025</td><td class="r">1000</td><td class="r">0.524 ± 0.018</td></tr>
+<tr><td>v1</td><td>scoring formula + trade-then-build</td><td class="r">0.635 ± 0.067</td><td class="r">200</td><td class="r"></td></tr>
+<tr><td>v2</td><td>+ knight and road-building follow-up</td><td class="r">0.683 ± 0.046</td><td class="r">400</td><td class="r"></td></tr>
+<tr><td>v3</td><td>+ opening that looks at the opponent's picks</td><td class="r">0.726 ± 0.028</td><td class="r">1000</td><td class="r">0.537 ± 0.056</td></tr>
+<tr><td>v5</td><td>+ SPSA weights (our first submission)</td><td class="r">0.791 ± 0.025</td><td class="r">1000</td><td class="r">0.550 ± 0.049</td></tr>
+<tr><td>combo</td><td>v5 + regime \(\varphi\) + turn plan</td><td class="r">0.787 ± 0.025</td><td class="r">1000</td><td class="r">0.524 ± 0.018</td></tr>
 <tr><td>op1</td><td>v5 + learned opening</td><td class="r">0.786 ± 0.020</td><td class="r">1600</td><td class="r">0.543 ± 0.040</td></tr>
 <tr class="hl"><td>comboop1</td><td>combo + learned opening</td><td class="r">0.820 ± 0.024</td><td class="r">1000</td><td class="r">0.523 ± 0.031</td></tr>
-<tr><td>cop1fix</td><td>+ Monopoly only after rolling; turn plan only with ≥ 0.9&nbsp;s left</td><td class="r">0.770 ± 0.041</td><td class="r">400</td><td class="r">0.503 ± 0.035*</td></tr>
+<tr><td>cop1fix</td><td>+ Monopoly after rolling; turn plan only with ≥ 0.9&nbsp;s left</td><td class="r">0.770 ± 0.041</td><td class="r">400</td><td class="r">0.503 ± 0.035*</td></tr>
 </tbody></table>
-<p class="cap">Table 1. Progression. In the "h2h vs parent" column, v5's parent is v3, combo's and op1's is v5, and comboop1's is combo. On the same 1000 seeds, comboop1 beat F 0.820 and combo 0.787; on op1's 1600 games, op1 0.786 and v5 0.761. *Measured with the Monopoly fix only, 800 games.</p>
+<p class="cap">Table 1. Our main line. For combo and op1 the parent is v5; for comboop1 it is combo. On the same 1000 seeds, comboop1 beat F 0.820 and combo 0.787. On op1's 1600 games, v5 scored 0.761. *With the Monopoly fix only, 800 games.</p>
 
-<p><b>Other results.</b></p>
-<ul>
-<li><b>Leaderboard, organisers' machine (1000 games each):</b> v5 scored 0.779 ± 0.026 vs F and 0.626 ± 0.030 vs O. comboop1 scored 0.813 ± 0.024 vs F and <b>0.658 ± 0.029 vs O</b>, at 277&nbsp;ms mean CPU per game, with 0 games over the clock and 0 faults. Our local F estimates (0.791 and 0.820) matched within the intervals. [TODO: leaderboard numbers for bot_cop1fix.]</li>
-<li><b>Robustness of v5 (h2h):</b> it beats catanatron AlphaBeta-2 0.883 (60 games, unclocked) and WeightedRandom 1.000.</li>
-<li><b>A second strong benchmark:</b> our re-implementation of the organisers' "F + regime" bot beats F 0.570. v5 beats it 0.747. The difficulty ladder is consistent: F, then F+regime, then O.</li>
-</ul>
+<p><b>The early climb.</b> v1 was only the formula plus "trade, then build", and it already beat F 63&nbsp;% of the time. In v1 games we noticed that the bot finished games still holding knights. Playing a knight looked like "losing a card", because the gain only comes from the robber move after it. Adding that follow-up step gave about +5 points (v2). Next we made the opening think about the snake order, scoring each pick as our best pair minus the opponent's best pair, and that gave about +4 (v3). Then SPSA gave +6.5, the biggest single jump (v5).</p>
+<p>The weights SPSA moved are interesting in themselves. A knight in hand fell from 0.25 to 0.09&nbsp;VP, so play them and don't keep them. Production per pip halved (0.11 to 0.055) while wheat and ore went up ×1.6. The opponent weight fell from 0.9 to 0.74, and diversity rose from 0.12 to 0.27.</p>
 
+<p><b>Leaderboard.</b> v5 scored 0.779 ± 0.026 against F and 0.626 ± 0.030 against O. comboop1 then scored 0.813 ± 0.024 against F and 0.658 ± 0.029 against O, at 277&nbsp;ms mean CPU per game, with 0 games over the clock and 0 faults. Our own F estimates were 0.791 and 0.820, both inside the leaderboard intervals, so our testing setup was telling the truth. [TODO: leaderboard numbers for bot_cop1fix.]</p>
+
+<p><b>Then we hit a plateau.</b> After v5, almost everything we tried came out level or worse:</p>
 <table>
-<thead><tr><th>Tried and not adopted</th><th class="r">h2h vs v5</th><th class="r">n</th></tr></thead>
+<thead><tr><th>Idea</th><th class="r">h2h vs v5</th><th class="r">n</th></tr></thead>
 <tbody>
-<tr><td>Pure learned linear evaluation (logistic regression on outcomes)</td><td class="r">0.10–0.25</td><td class="r">≥ 300</td></tr>
-<tr><td>Opponent-roll expectimax at end of turn (11 dice sums, worst-case robber)</td><td class="r">0.42–0.46</td><td class="r">400</td></tr>
-<tr><td>Convex "progress toward a build" hand features (vs v2)</td><td class="r">0.417 ± 0.056</td><td class="r">300</td></tr>
-<tr><td>Endgame danger mode; robber lookahead</td><td class="r">0.497–0.498</td><td class="r">600</td></tr>
-<tr><td>Second SPSA round; SPSA with regime switched on</td><td class="r">0.503</td><td class="r">600–1200</td></tr>
-<tr><td>1v1 community heuristics (knight hold, bottleneck robber, …)</td><td class="r">0.47–0.51</td><td class="r">600 each</td></tr>
-<tr><td>Opponent-adaptive Thompson-sampling bandit over 4 strategies</td><td class="r">0.530</td><td class="r">400</td></tr>
+<tr><td>Learning the whole formula by logistic regression on game outcomes</td><td class="r">0.10–0.25</td><td class="r">≥ 300</td></tr>
+<tr><td>Before ending the turn, averaging over all the opponent's dice rolls</td><td class="r">0.42–0.46</td><td class="r">400</td></tr>
+<tr><td>Extra reward for being "close to" a build (vs v2)</td><td class="r">0.417 ± 0.056</td><td class="r">300</td></tr>
+<tr><td>Endgame "danger mode"; robber look-ahead</td><td class="r">0.497–0.498</td><td class="r">600</td></tr>
+<tr><td>A second SPSA round; SPSA with the regime switched on</td><td class="r">0.503</td><td class="r">600–1200</td></tr>
+<tr><td>1v1 tips from the Catan community (hold knights, block bottlenecks, …)</td><td class="r">0.47–0.51</td><td class="r">600 each</td></tr>
+<tr><td>A bandit that learns which of 4 styles works against each opponent</td><td class="r">0.530</td><td class="r">400</td></tr>
 </tbody></table>
-<p class="cap">Table 2. Negative and neutral results. The adaptive bandit scored 0.805 vs F, 400 games, clocked. It was not adopted because it is not distinguishable from comboop1 at that sample size.</p>
+<p class="cap">Table 2. Ideas we tried after v5. The bandit also scored 0.805 against F, but at 400 games we could not tell it apart from comboop1.</p>
+<p>Some of these surprised us. Averaging over the opponent's dice made the bot worse, not better. We think the reason is that our formula was tuned on positions at the end of our own turn, and here we were scoring positions in the middle of the opponent's turn. The "close to a build" reward made the bot sit on its cards instead of building, and it then lost them to sevens.</p>
+<p>The regime and the turn plan were each only a small gain, about +1.7 standard errors. Together, in combo, they first measured 0.508 over 1200 games, so the gains did not simply add. Only after 3000 games did combo show 0.524. The turn plan also taught us a lesson: our first version scored the end of the turn on the one random dev card it drew, and it lost to v5 (0.46). Once we scored the draw by its average, it won 0.51–0.53. What finally moved us forward again was the learned opening, which brings in information the formula does not have: op1 gained 2.5 to 5 points against every bot we tried.</p>
 
-<p><b>Auditing decisions instead of only games.</b> To find flaws that win rates average away, we audited about 950 sampled v5 decisions. For each candidate action we ran 24 Monte-Carlo rollouts with common dice and computed a split-half unbiased regret. Robber moves, discards, end of turn, trades, builds and knight timing all showed ≈ 0 regret (all within ±2&nbsp;points). One flaw was clear: <b>playing Monopoly before rolling cost 7.3 ± 5.7 points</b>. Rolling first adds information, while a pre-roll Monopoly swells the hand before a possible 7. The fix never hurt (0.503 vs comboop1, 800 games).</p>
-<p><b>Red-teaming the clock.</b> In 700 clocked games with three adversarial bots, a separate session found 0 errors and no exploit. However, 2 of 500 very long games ran out of clock: the turn plan had no deadline and took up to 420&nbsp;ms per decision at 0.45&nbsp;s left. The submitted bot plans only with ≥ 0.9&nbsp;s left (mean CPU 300&nbsp;ms vs 427&nbsp;ms). It scored 0.770 ± 0.041 vs F in 400 games. That is below comboop1's 0.820, close to two standard errors, so the clock fix may have cost some strength. We chose clock safety over that possible gain.</p>
-<h2>6&nbsp; Insights</h2>
+<p><b>Checking single decisions.</b> Win rates average everything together, so a bad habit in a rare situation stays hidden. We checked about 950 decisions from real v5 games.
+For each possible move we played 24 random continuations, with the same dice sequences for every move. Then we measured how much better the best alternative was than the move the bot chose. Half the rollouts picked the best alternative and the other half measured it, because the best of several noisy numbers always looks too good.</p>
+<p>Almost every kind of decision came out close to zero. One was clearly bad: <b>playing Monopoly before rolling cost about 7.3 ± 5.7 points</b>. Rolling first is free information. Playing Monopoly first also fills the hand just before a possible 7. We fixed it, and the fix did no harm (0.503 against comboop1 over 800 games, as the case is rare).</p>
+<p><b>Trying to break our own bot.</b> In a separate session we attacked comboop1 with three adversarial bots over 700 clocked games. There were no crashes and no exploit. But 2 of 500 very long games ran out of clock: the turn plan had no deadline and took up to 420&nbsp;ms on one move. In the submitted bot the turn plan runs only with at least 0.9&nbsp;s left, and mean CPU fell from 427 to 300&nbsp;ms per game. Against F it scored 0.770 ± 0.041 in 400 games, lower than comboop1's 0.820 and close to 2 standard errors. So this fix may have cost us some strength. We chose to stay safe on the clock.</p>
+
+<h2>6&nbsp; What we learned</h2>
 <ol>
-<li><b>A model that predicts well is not a model that decides well.</b> Logistic regression of the winner on our own features had 78&nbsp;% held-out accuracy and log-loss 0.445. As a greedy policy it won only 10&nbsp;% against the hand-tuned bot. The fitted weights show why. "Holding the cards for a city" earned +1.48&nbsp;VP, more than building the city gains. The bot hoarded and never built, and played knights even got a negative weight because they are collinear with army lead. Refitting on after-states only lifted it to 0.19, so the fix is not more outcome regression. The fix is a signal at the decision level: rank the chosen after-state against its siblings, or bootstrap as in TD learning. Any learned critic used greedily has this problem.</li>
-<li><b>Where the same learning worked, and why.</b> The opening model is the same kind of regression, yet it gained 2.5–5 points against every opponent. All four settlements are compared at one point in time and the choice changes only static assets, so for this decision, predicting the outcome and choosing the action are the same task. In the mid-game they diverge.</li>
-<li><b>Evaluation beats depth when compute is the constraint.</b> A better one-ply evaluation took us from 50&nbsp;% to 79&nbsp;% against F at F's own CPU cost. Search on F's evaluation gave 57.5&nbsp;%, and none of our three search extensions on top of v5 cleared 2&nbsp;SE.</li>
-<li><b>Exploit what the opponent's objective cannot see.</b> Largest Army and hidden VP cards are VP sources F never contests, and they show up in almost all of v5's wins.</li>
-<li><b>Once self-play has tuned an evaluation, small structural changes get absorbed.</b> A second SPSA round, a regime and race weights each landed within ±2&nbsp;SE of v5. Two changes of +1.7&nbsp;SE each did not add up (0.508). New information, such as the learned opening, still helped.</li>
-<li><b>Measurement discipline.</b> SPSA's own θ⁺-vs-θ⁻ score sits at 0.5 by construction, so progress must be measured against a frozen parent. At n = 400 the interval is ±4.4 points, and several "improvements" seen at n = 40–60 vanished at n = 300. Paired boards and a held-out opponent were necessary. Audits behave the same way: a robber-move regret of +2.9 points at n = 35 vanished at n = 247.</li>
+<li><b>A model that predicts the winner well is not a model that chooses moves well.</b> This was our biggest lesson. We fit logistic regression to predict the winner from our own features. It was 78&nbsp;% accurate on held-out games, but as a bot it won only 10&nbsp;% against our hand-tuned one. When we looked at the weights, "holding the cards for a city" was worth +1.48&nbsp;VP. Players holding those cards are usually the ones winning, because winners have more resources. The model learned that correlation. The greedy bot then compares "keep holding" (+1.48) with "build the city" (+1&nbsp;VP plus production, minus the 1.48). Holding looks better, so the bot hoards and never builds. Played knights even got a negative weight, because they move together with army lead. Fitting only on positions right after our moves still gave 0.19. More outcome data will not fix this. The fix needs a signal about decisions: compare the chosen move with the moves not chosen, or use TD learning.</li>
+<li><b>The same kind of model worked for the opening, and we think we know why.</b> When placing settlements, all four are compared at one moment, and nothing is half-built. Predicting who wins from a placement and choosing the placement are the same question. In the middle game they are not.</li>
+<li><b>With a tight compute budget, a better evaluation beats deeper search.</b> Better scoring took us from 50&nbsp;% to 79&nbsp;% against F at the same CPU cost. Search on F's scoring gave 57.5&nbsp;%, and none of our search add-ons cleared 2 standard errors.</li>
+<li><b>Look at what the opponent's goal ignores.</b> F counts public points only, so Largest Army and VP cards were nearly free points.</li>
+<li><b>Once self-play has tuned the weights, small new terms get absorbed.</b> A second SPSA round, the regime and the race weights all stayed within 2 standard errors of v5. What still helped was new information, like the learned opening.</li>
+<li><b>Measuring carefully was half the work.</b> SPSA's own log stays near 50&nbsp;% by design, because its two bots are almost the same, so progress must be measured against a frozen older version. At 400 games the error bar is ±4.4 points, and several "improvements" we saw at 40–60 games disappeared at 300. Decision checks fool you the same way: a robber signal of +2.9 at 35 decisions vanished at 247.</li>
 </ol>
 
-<h2>7&nbsp; Limitations and next steps</h2>
-<ul>
-<li><b>One sampled world.</b> The bot ignores hidden-VP risk late in the game, and about 80&nbsp;% of the clock goes unused.</li>
-<li><b>Opening limits.</b> The opponent model in the opening is our own draft, the opening data is self-play only, and roads are ignored when an opening is scored.</li>
-<li><b>Next steps.</b> TD(λ) on after-states, the principled fix for insight&nbsp;1. Averaging over several sampled worlds. Joint SPSA of the evaluation with the turn plan switched on.</li>
-</ul>
+<h2>7&nbsp; What we would do next</h2>
+<p>The bot guesses the hidden cards only once per decision and leaves about 80&nbsp;% of the clock unused. Averaging over several guesses would use that time. The opening assumes the opponent drafts like our old formula, trains only on self-play, and ignores roads. The proper fix for lesson 1 is TD(λ) learning on positions right after our moves. We would also re-tune the weights with the turn plan switched on.</p>
 
 <h2>References</h2>
 <ol class="refs">
