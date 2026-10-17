@@ -55,7 +55,17 @@ DEFAULT = dict(
     reg_fade=0.0,     # expansion terms scaled by (1 - reg_fade * phi)
     reg_dev=0.0,      # dev-card terms scaled by (1 + reg_dev * phi)
     reg_reach=1,      # roads of reach for the best open spot (1 = spec; 2 also counts two-road spots)
+    # 1v1 heuristics (RESULTS_heur.md); all off by default
+    kn_hold=0.0,      # margin a knight must clear when it is my last one and the robber already hurts them
+    rb_short=0.0,     # robber bonus: tile's resource is the one card they lack for a build
+    rb_only=0.0,      # robber bonus: tile is their only source of its resource
+    dup=1.0,          # weight of the 2nd+ distinct tile sharing a dice number (production)
+    plow=0.0,         # contested open spots: bonus per pip/10 of top spots I reach no later than them
+    plow_k=5,
+    mono_min=0,       # play monopoly only if it takes >= this many cards (or enables/denies a build)
 )
+COST = ((("WOOD", 1), ("BRICK", 1), ("SHEEP", 1), ("WHEAT", 1)), (("WHEAT", 2), ("ORE", 3)),
+        (("SHEEP", 1), ("WHEAT", 1), ("ORE", 1)))
 REG_EXPAND = (1.25, 1.25, 1.0, 0.9, 0.6)
 REG_BUILD = (0.6, 0.6, 0.9, 1.35, 1.55)
 
@@ -155,6 +165,16 @@ class Valuer:
     def production(self, st, c, color, robber_tile):
         prod = [0.0] * 5
         b = st.buildings_by_color[color]
+        dup = self.p["dup"]
+        if dup != 1.0:
+            num_tile = {}
+            for mult, kind in ((1, SETTLEMENT), (2, CITY)):
+                for n in b[kind]:
+                    for r, p, t in c.node_tiles[n]:
+                        if t is not robber_tile:
+                            f = num_tile.setdefault(t.number, t)
+                            prod[RIDX[r]] += mult * p * (1.0 if f is t else dup)
+            return prod
         for mult, kind in ((1, SETTLEMENT), (2, CITY)):
             for n in b[kind]:
                 for r, p, t in c.node_tiles[n]:
@@ -351,7 +371,59 @@ class Valuer:
         v = s1 - ok * s2
         v += p["army_lead"] * max(-2, min(2, k1 - k2))
         v += p["road_lead"] * max(-2, min(2, r1 - r2)) / 2
+        if p["plow"]:
+            v += p["plow"] * self.contested(st, c, me_color, opp_color)
         return v
+
+    def road_dist(self, st, color, cap=3):
+        """BFS road distance (edges to build) from color's network to every node, up to cap."""
+        board = st.board
+        comps = board.connected_components[color]
+        if not comps:
+            return {}
+        roads = board.roads
+        bld = board.buildings
+        dist = {n: 0 for n in set().union(*comps)}
+        front = list(dist)
+        for d in range(1, cap + 1):
+            nxt = []
+            for n in front:
+                o = bld.get(n)
+                if o is not None and o[0] != color:
+                    continue
+                for nb in NEIGH[n]:
+                    if nb in dist:
+                        continue
+                    rc = roads.get((n, nb))
+                    if rc is not None and rc != color:
+                        continue
+                    dist[nb] = d
+                    nxt.append(nb)
+            front = nxt
+        return dist
+
+    def contested(self, st, c, me, opp):
+        """Sum over the top open spots of pips/10, + if I reach it no later than them, - otherwise."""
+        ps = st.player_state
+        sm = ps[f"P{st.color_to_index[me]}_SETTLEMENTS_AVAILABLE"] > 0
+        so = ps[f"P{st.color_to_index[opp]}_SETTLEMENTS_AVAILABLE"] > 0
+        if not (sm or so):
+            return 0.0
+        np_ = c.node_pips
+        spots = sorted(st.board.board_buildable_ids, key=lambda n: -np_.get(n, 0))[: self.p["plow_k"]]
+        dm = self.road_dist(st, me)
+        do = self.road_dist(st, opp)
+        out = 0.0
+        for n in spots:
+            a, b = dm.get(n, 9), do.get(n, 9)
+            if a == 9 and b == 9:
+                continue
+            w = np_.get(n, 0) / 10.0
+            if a <= b and sm:
+                out += w
+            elif b < a and so:
+                out -= w
+        return out
 
 
 RIDX = {r: i for i, r in enumerate(RES)}
@@ -392,6 +464,51 @@ class Agent:
 
     def eval_action(self, game, action, me):
         """Score of the state after `action` (expected over its random outcome where cheap)."""
+        at = action.action_type
+        if at == AT.MOVE_ROBBER and (self.V.p["rb_short"] or self.V.p["rb_only"]):
+            v, g = self._eval_action(game, action, me)
+            return v + self.robber_bonus(game, action.value[0], me), g
+        return self._eval_action(game, action, me)
+
+    def robber_bonus(self, game, coord, me):
+        p = self.V.p
+        st = game.state
+        tile = st.board.map.land_tiles.get(coord)
+        if tile is None or tile.resource is None:
+            return 0.0
+        opp = st.colors[1 - st.color_to_index[me]]
+        c = ctx_for(game)
+        r = tile.resource
+        nodes = set(tile.nodes.values())
+        b = st.buildings_by_color[opp]
+        if not any(n in nodes for n in b[SETTLEMENT] + b[CITY]):
+            return 0.0
+        bonus = 0.0
+        ps = st.player_state
+        k = f"P{st.color_to_index[opp]}_"
+        hand = {x: ps[k + x + "_IN_HAND"] for x in RES}
+        if p["rb_short"]:
+            for i, cost in enumerate(COST):
+                if i == 0 and ps[k + "SETTLEMENTS_AVAILABLE"] <= 0:
+                    continue
+                if i == 1 and (ps[k + "CITIES_AVAILABLE"] <= 0 or not b[SETTLEMENT]):
+                    continue
+                short = [(x, q - hand[x]) for x, q in cost if hand[x] < q]
+                if len(short) == 1 and short[0] == (r, 1):
+                    bonus += p["rb_short"]
+                    break
+        if p["rb_only"]:
+            only = True
+            for kind in (SETTLEMENT, CITY):
+                for n in b[kind]:
+                    for rr, pp, t in c.node_tiles[n]:
+                        if rr == r and t is not tile:
+                            only = False
+            if only:
+                bonus += p["rb_only"]
+        return bonus
+
+    def _eval_action(self, game, action, me):
         at = action.action_type
         if at == AT.MOVE_ROBBER and action.value[1] is not None:
             g = game.copy()
@@ -441,9 +558,12 @@ class Agent:
         rw = p["res_w"]
         prod = [0.0] * 5
         ports = set()
+        num_tile = {}
+        dup = p["dup"]
         for n in nodes:
-            for r, pp, _ in c.node_tiles[n]:
-                prod[RIDX[r]] += pp
+            for r, pp, t in c.node_tiles[n]:
+                f = num_tile.setdefault(t.number, t)
+                prod[RIDX[r]] += pp * (1.0 if f is t else dup)
             if n in c.port_of:
                 ports.add(c.port_of[n])
         v = p["prod"] * sum(prod[r] * rw[r] for r in range(5)) + p["div"] * sum(1 for x in prod if x > 0)
@@ -514,6 +634,51 @@ class Agent:
             return choice
         return best_completion(mine, free0)[1]
 
+    def hold_knight(self, game, g2, me):
+        """True when this is my last knight, the robber already sits on a >=3-pip opponent tile that
+        touches none of my buildings, and playing it neither takes Largest Army nor wins."""
+        st = game.state
+        ps = st.player_state
+        i = st.color_to_index[me]
+        if ps[f"P{i}_KNIGHT_IN_HAND"] != 1:
+            return False
+        tile = st.board.map.land_tiles.get(st.board.robber_coordinate)
+        if tile is None or tile.resource is None or PIPS.get(tile.number, 0) < 3:
+            return False
+        nodes = set(tile.nodes.values())
+        mine = st.buildings_by_color[me]
+        if any(n in nodes for n in mine[SETTLEMENT] + mine[CITY]):
+            return False
+        ob = st.buildings_by_color[st.colors[1 - i]]
+        if not any(n in nodes for n in ob[SETTLEMENT] + ob[CITY]):
+            return False
+        p2 = g2.state.player_state
+        if p2[f"P{i}_HAS_ARMY"] and not ps[f"P{i}_HAS_ARMY"]:
+            return False
+        if g2.winning_color() == me:
+            return False
+        return True
+
+    def mono_ok(self, game, action, g2, me):
+        st = game.state
+        ps = st.player_state
+        i = st.color_to_index[me]
+        r = action.value
+        ko = f"P{1 - i}_"
+        km = f"P{i}_"
+        if ps[ko + r + "_IN_HAND"] >= self.V.p["mono_min"]:
+            return True
+        mine = {x: ps[km + x + "_IN_HAND"] for x in RES}
+        theirs = {x: ps[ko + x + "_IN_HAND"] for x in RES}
+        mine2 = {x: g2.state.player_state[km + x + "_IN_HAND"] for x in RES}
+        afford = lambda h, cost: all(h[x] >= q for x, q in cost)
+        for cost in COST:
+            if afford(mine2, cost) and not afford(mine, cost):
+                return True
+            if afford(theirs, cost) and any(x == r for x, _ in cost):
+                return True
+        return False
+
     PANIC = {AT.BUILD_CITY: 0, AT.BUILD_SETTLEMENT: 1, AT.PLAY_KNIGHT_CARD: 2, AT.BUY_DEVELOPMENT_CARD: 3,
              AT.ROLL: 4, AT.END_TURN: 5}
 
@@ -560,6 +725,11 @@ class Agent:
                 g2 = None
             else:
                 v, g2 = self.eval_action(game, a, me)
+            if at == AT.PLAY_KNIGHT_CARD and self.V.p["kn_hold"] and g2 is not None and self.hold_knight(game, g2, me):
+                v -= self.V.p["kn_hold"]
+            if at == AT.PLAY_MONOPOLY and self.V.p["mono_min"] and g2 is not None and not self.mono_ok(game, a, g2, me):
+                v = -1e9
+                g2 = None
             scored.append((v, idx, g2))
             if v > best_v:
                 best_v, best_i = v, idx
@@ -573,6 +743,8 @@ class Agent:
             if g2 is None or at not in (AT.PLAY_KNIGHT_CARD, AT.PLAY_ROAD_BUILDING):
                 continue
             bv = self.greedy_followup(g2, me, 2 if at == AT.PLAY_ROAD_BUILDING else 1)
+            if at == AT.PLAY_KNIGHT_CARD and self.V.p["kn_hold"] and self.hold_knight(game, g2, me):
+                bv -= self.V.p["kn_hold"]
             if bv > best_v + 1e-9:
                 best_v, best_i = bv, idx
 
