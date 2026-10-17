@@ -50,7 +50,14 @@ DEFAULT = dict(
     settle_spot=0.0000,
     prog_city=0.0, prog_settle=0.0, prog_dev=0.0,   # convex progress toward a build target (tested: worse)
     draft=1.0,                                      # snake-draft lookahead for the opening
+    # regime (expand -> build): phi in [0,1] computed once per decision at the root, 0 = off
+    regime=0.0,       # strength of the resource-multiplier interpolation (1 = full multipliers)
+    reg_fade=0.0,     # expansion terms scaled by (1 - reg_fade * phi)
+    reg_dev=0.0,      # dev-card terms scaled by (1 + reg_dev * phi)
+    reg_reach=1,      # roads of reach for the best open spot (1 = spec; 2 also counts two-road spots)
 )
+REG_EXPAND = (1.25, 1.25, 1.0, 0.9, 0.6)
+REG_BUILD = (0.6, 0.6, 0.9, 1.35, 1.55)
 
 
 class Ctx:
@@ -88,6 +95,61 @@ class Valuer:
         self.p = dict(DEFAULT)
         if params:
             self.p.update(params)
+        self.phi = {}     # color -> regime phi, fixed for the current decision
+
+    def regime_on(self):
+        p = self.p
+        return bool(p["regime"] or p["reg_fade"] or p["reg_dev"])
+
+    def set_regime(self, game):
+        """phi = max(phi_VP, phi_space) per color, from the root world of this decision."""
+        self.phi = {}
+        if not self.regime_on():
+            return
+        st = game.state
+        ps = st.player_state
+        c = ctx_for(game)
+        for color in st.colors:
+            k = f"P{st.color_to_index[color]}_"
+            phi_vp = min(1.0, max(0.0, (ps[k + "ACTUAL_VICTORY_POINTS"] - 4) / 4.0))
+            if st.is_initial_build_phase:
+                phi_sp = 0.0
+            elif ps[k + "SETTLEMENTS_AVAILABLE"] <= 0:
+                phi_sp = 1.0
+            else:
+                if self.p["reg_reach"] >= 2:
+                    e1, e2, nb = self.expansion(st, c, color)
+                    spot = max(self.best_open_spot(st, c, color), 0.8 * e2 / 2 if e2 else 0)
+                else:
+                    spot = self.best_open_spot(st, c, color)
+                phi_sp = 1.0 - min(1.0, spot / 10.0)
+            self.phi[color] = max(phi_vp, phi_sp)
+
+    def best_open_spot(self, st, c, color):
+        """Highest-pip legal settlement spot reachable now or with one more road."""
+        board = st.board
+        buildable = board.board_buildable_ids
+        comps = board.connected_components[color]
+        if not comps:
+            return 0
+        frontier = set().union(*comps)
+        roads = board.roads
+        bld = board.buildings
+        np_ = c.node_pips
+        best = 0
+        for n in frontier:
+            if n in buildable:
+                best = max(best, np_.get(n, 0))
+            o = bld.get(n)
+            if o is not None and o[0] != color:
+                continue
+            for nb in NEIGH[n]:
+                rc = roads.get((n, nb))
+                if rc is not None and rc != color:
+                    continue
+                if nb in buildable:
+                    best = max(best, np_.get(nb, 0))
+        return best
 
     # ---- per player pieces -------------------------------------------------------------------
     def production(self, st, c, color, robber_tile):
@@ -158,6 +220,13 @@ class Valuer:
 
         prod = self.production(st, c, color, robber_tile)
         rw = p["res_w"]
+        phi = self.phi.get(color, 0.0)
+        if phi and p["regime"]:
+            q = phi + 0.5 * (1 - phi)
+            a = p["regime"]
+            rw = [w * (1 + a * ((1 - q) * e + q * b - 1)) for w, e, b in zip(rw, REG_EXPAND, REG_BUILD)]
+        fade = 1 - p["reg_fade"] * phi
+        dmul = 1 + p["reg_dev"] * phi
         s = vp
         s += wprod * sum(prod[r] * rw[r] for r in range(5))
         s += p["div"] * (1 - phase) * sum(1 for x in prod if x > 0)
@@ -165,7 +234,7 @@ class Valuer:
         e1, e2, nb = self.expansion(st, c, color)
         settle_left = ps[k + "SETTLEMENTS_AVAILABLE"]
         if settle_left > 0:
-            s += (1 - phase * 0.5) * (p["exp1"] * e1 + p["exp2"] * e2 + p["exp_n"] * min(nb, 2))
+            s += fade * (1 - phase * 0.5) * (p["exp1"] * e1 + p["exp2"] * e2 + p["exp_n"] * min(nb, 2))
 
         # hand
         hand = [ps[k + r + "_IN_HAND"] for r in RES]
@@ -195,11 +264,11 @@ class Valuer:
         if me:
             kh = ps[k + "KNIGHT_IN_HAND"]
             other = ps[k + "ROAD_BUILDING_IN_HAND"] + ps[k + "YEAR_OF_PLENTY_IN_HAND"] + ps[k + "MONOPOLY_IN_HAND"]
-            s += p["knight_hand"] * kh + p["dev_other"] * other
+            s += dmul * (p["knight_hand"] * kh + p["dev_other"] * other)
         else:
             ndev = sum(ps[k + d + "_IN_HAND"] for d in DEVS)
-            s += ndev * (0.56 * p["knight_hand"] + 0.24 * p["dev_other"] + 0.2 * 1.0)
-        s += p["knight_played"] * min(knights_played, 4)
+            s += ndev * (dmul * (0.56 * p["knight_hand"] + 0.24 * p["dev_other"]) + 0.2 * 1.0)
+        s += dmul * p["knight_played"] * min(knights_played, 4)
         # ports
         ports = st.board.get_player_port_resources(color)
         for r in ports:
@@ -302,18 +371,20 @@ class Agent:
         tot = sum(max(0, x) for x in counts.values())
         if tot <= 0:
             return 0.0
-        ev = (max(0, counts["KNIGHT"]) * p["knight_hand"] + max(0, counts["VICTORY_POINT"]) * 1.0 +
+        dm = 1 + p["reg_dev"] * self.V.phi.get(me, 0.0)
+        ev = (max(0, counts["KNIGHT"]) * p["knight_hand"] * dm + max(0, counts["VICTORY_POINT"]) * 1.0 +
               (max(0, counts["ROAD_BUILDING"]) + max(0, counts["YEAR_OF_PLENTY"]) + max(0, counts["MONOPOLY"]))
-              * p["dev_other"]) / tot
+              * p["dev_other"] * dm) / tot
         return ev
 
-    def dev_val(self, card):
+    def dev_val(self, card, me=None):
         p = self.V.p
+        dm = 1 + p["reg_dev"] * self.V.phi.get(me, 0.0)
         if card == "KNIGHT":
-            return p["knight_hand"]
+            return p["knight_hand"] * dm
         if card == "VICTORY_POINT":
             return 1.0
-        return p["dev_other"]
+        return p["dev_other"] * dm
 
     def eval_action(self, game, action, me):
         """Score of the state after `action` (expected over its random outcome where cheap)."""
@@ -332,7 +403,7 @@ class Agent:
                 drawn = [d for d in DEVS if g.state.player_state[f"P{i}_{d}_IN_HAND"] > before[d]]
                 v = self.V.value(g, me)
                 if drawn:
-                    v += self.dev_ev(game, me) - self.dev_val(drawn[0])
+                    v += self.dev_ev(game, me) - self.dev_val(drawn[0], me)
                 return v, g
             g.execute(action, validate_action=False)
         except Exception:
@@ -462,6 +533,7 @@ class Agent:
             return 0
         cheap = obs.cpu_left is not None and obs.cpu_left < 0.25
         st = game.state
+        self.V.set_regime(game)
 
         if self.V.p["draft"] and st.is_initial_build_phase and st.current_prompt.name == "BUILD_INITIAL_SETTLEMENT":
             try:
