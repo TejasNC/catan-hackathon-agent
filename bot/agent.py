@@ -393,11 +393,32 @@ class Agent:
     def eval_action(self, game, action, me):
         """Score of the state after `action` (expected over its random outcome where cheap)."""
         at = action.action_type
+        if at == AT.MOVE_ROBBER and self.V.p.get("rob_ok"):
+            # robber moves scored with a different weight on the opponent's position (audit finding)
+            saved = self.V.p["opp_k"]
+            self.V.p["opp_k"] = self.V.p["rob_ok"]
+            try:
+                return self._eval_robber(game, action, me)
+            finally:
+                self.V.p["opp_k"] = saved
+        if at == AT.MOVE_ROBBER:
+            return self._eval_robber(game, action, me)
+        return self._eval_rest(game, action, me)
+
+    def _eval_robber(self, game, action, me):
+        at = action.action_type
+        if action.value[1] is None:
+            g = game.copy()
+            g.execute(action, validate_action=False)
+            return self.V.value(g, me), g
         if at == AT.MOVE_ROBBER and action.value[1] is not None:
             g = game.copy()
             g.execute(Action(action.color, at, (action.value[0], None)), validate_action=False)
             # a steal: +1 random card for me, -1 for them
             return self.V.value(g, me) + self.V.p["card"] * (1 + self.V.p["opp_k"]), g
+
+    def _eval_rest(self, game, action, me):
+        at = action.action_type
         g = game.copy()
         try:
             if at == AT.BUY_DEVELOPMENT_CARD:
