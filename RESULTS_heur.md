@@ -39,4 +39,20 @@ the army race when 2+ knights behind), r4 conc_cap=8 (concave per-resource produ
 Note: v5's opp_k = 0.74 and knight_hand = 0.09 were tuned by SPSA in **self-play** (θ⁺ vs θ⁻),
 not against F, so they are already mirror-tuned.
 
-Gauntlet results: see below (filled in as they finish).
+### Gauntlet (`tools/gauntlet.py X 100 4 2800000`, 100 paired games per opponent, 800 per row)
+
+CVaR_0.5 = mean of the worst 4 of 8 cells; its CI is about ±0.05.
+
+| variant | mean | CVaR_0.5 | ows | road | port | blocker | greedy | v3 | fregime | v5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| v5 (control) | 0.584 | 0.510 | 0.69 | 0.61 | 0.58 | 0.50 | 0.54 | 0.50 | 0.75 | 0.50 |
+| r1 profiling, adapt_k=1.0 | 0.586 | 0.510 | 0.69 | 0.63 | 0.58 | 0.51 | 0.53 | 0.50 | 0.75 | 0.50 |
+| r2 robber-aware, 0.4 | 0.583 | 0.500 | 0.66 | 0.64 | 0.59 | 0.49 | 0.49 | 0.52 | 0.77 | 0.50 |
+| r3 army give-up, 0.6 | 0.583 | 0.513 | 0.69 | 0.61 | 0.56 | 0.50 | 0.53 | 0.52 | 0.75 | 0.50 |
+| r4 concave prod, cap 8 | 0.571 | 0.493 | 0.65 | 0.61 | 0.59 | 0.47 | 0.52 | 0.54 | 0.75 | 0.44 |
+
+Reading: no variant moves the floor; every difference is < 1 SE. v5's floor is set by the
+near-mirrors (blocker = v5 with opp_k 1.25, v3, v5 itself), where paired boards split 1–1
+almost every time: the dice decide those games, not the weights. The profiler works (alpha
+moves 0 → 1 within games) but moving opp_k from 0.74 toward 1.0 changes nothing measurable,
+consistent with opp_k having been tuned in self-play already.
