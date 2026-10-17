@@ -63,6 +63,12 @@ DEFAULT = dict(
     plow=0.0,         # contested open spots: bonus per pip/10 of top spots I reach no later than them
     plow_k=5,
     mono_min=0,       # play monopoly only if it takes >= this many cards (or enables/denies a build)
+    # robustness ideas (RESULTS_heur.md); all off by default
+    adapt_k=0.0,      # opp_k target vs an "adversarial" opponent (0 = off); interpolated by alpha
+    rob_aware=0.0,    # expected robber uptime on each player's single most valuable tile
+    army_give=0.0,    # cut knight_played/army_lead by this fraction when 2+ knights behind
+    conc_cap=0.0,     # concave production: pips of one resource beyond cap count at conc_slope
+    conc_slope=0.6,
 )
 COST = ((("WOOD", 1), ("BRICK", 1), ("SHEEP", 1), ("WHEAT", 1)), (("WHEAT", 2), ("ORE", 3)),
         (("SHEEP", 1), ("WHEAT", 1), ("ORE", 1)))
@@ -106,6 +112,7 @@ class Valuer:
         if params:
             self.p.update(params)
         self.phi = {}     # color -> regime phi, fixed for the current decision
+        self.alpha = 0.5  # adversarial index of the opponent (adapt_k), updated by the Agent
 
     def regime_on(self):
         p = self.p
@@ -182,6 +189,16 @@ class Valuer:
                         prod[RIDX[r]] += mult * p
         return prod
 
+    def max_tile_loss(self, st, c, color, robber_tile, rw):
+        loss = {}
+        b = st.buildings_by_color[color]
+        for mult, kind in ((1, SETTLEMENT), (2, CITY)):
+            for n in b[kind]:
+                for r, p, t in c.node_tiles[n]:
+                    if t is not robber_tile:
+                        loss[t.id] = loss.get(t.id, 0.0) + mult * p * rw[RIDX[r]]
+        return max(loss.values()) if loss else 0.0
+
     def expansion(self, st, c, color):
         """Pips of the best settlement spots reachable with 0/1/2 more roads."""
         board = st.board
@@ -248,7 +265,14 @@ class Valuer:
         fade = 1 - p["reg_fade"] * phi
         dmul = 1 + p["reg_dev"] * phi
         s = vp
-        s += wprod * sum(prod[r] * rw[r] for r in range(5))
+        cap = p["conc_cap"]
+        if cap:
+            sl_ = p["conc_slope"]
+            s += wprod * sum(rw[r] * (x if x <= cap else cap + sl_ * (x - cap)) for r, x in enumerate(prod))
+        else:
+            s += wprod * sum(prod[r] * rw[r] for r in range(5))
+        if p["rob_aware"]:
+            s -= p["rob_aware"] * wprod * self.max_tile_loss(st, c, color, robber_tile, rw)
         s += p["div"] * (1 - phase) * sum(1 for x in prod if x > 0)
 
         e1, e2, nb = self.expansion(st, c, color)
@@ -365,6 +389,11 @@ class Valuer:
         s2, k2, r2 = self.score(game, opp_color, False, c, robber_tile)
         p = self.p
         ok = p["opp_k"]
+        if p["adapt_k"]:
+            ok += self.alpha * (p["adapt_k"] - ok)
+        if p["army_give"] and k2 - k1 >= 2:
+            g = p["army_give"]
+            s1 -= g * (p["knight_played"] * min(k1, 4) + p["army_lead"] * max(-2, min(2, k1 - k2)))
         if p.get("danger"):
             ovp = st.player_state[f"P{st.color_to_index[opp_color]}_VICTORY_POINTS"]
             ok += p["danger"] * max(0, ovp - 6) / 3.0
@@ -634,6 +663,25 @@ class Agent:
             return choice
         return best_completion(mine, free0)[1]
 
+    def profile(self, game, me):
+        """Adversarial index in [0,1]: opponents that hoard past 7 look F-like (0), opponents that
+        play knights and keep their hand small look like peers (1). Updated at my turn starts."""
+        st = game.state
+        if st.is_initial_build_phase or st.current_prompt.name != "PLAY_TURN":
+            return
+        t = st.num_turns
+        if getattr(self, "_pt", None) == t:
+            return
+        self._pt = t
+        ps = st.player_state
+        k = f"P{1 - st.color_to_index[me]}_"
+        n = sum(ps[k + r + "_IN_HAND"] for r in RES)
+        self._obs = getattr(self, "_obs", 0) + 1
+        self._hoard = getattr(self, "_hoard", 0) + (n > 7)
+        frac = self._hoard / self._obs
+        kn = ps[k + "PLAYED_KNIGHT"]
+        self.V.alpha = max(0.0, min(1.0, 0.5 + 0.25 * kn - 4.0 * frac))
+
     def hold_knight(self, game, g2, me):
         """True when this is my last knight, the robber already sits on a >=3-pip opponent tile that
         touches none of my buildings, and playing it neither takes Largest Army nor wins."""
@@ -703,6 +751,8 @@ class Agent:
         cheap = obs.cpu_left is not None and obs.cpu_left < 0.25
         st = game.state
         self.V.set_regime(game)
+        if self.V.p["adapt_k"]:
+            self.profile(game, me)
 
         if self.V.p["draft"] and st.is_initial_build_phase and st.current_prompt.name == "BUILD_INITIAL_SETTLEMENT":
             try:
