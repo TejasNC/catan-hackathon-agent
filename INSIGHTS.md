@@ -101,7 +101,9 @@ held-out check.
 | — | stronger army race / road race / both (vs F+regime bot) | — | | 0.745 / 0.732 / 0.728 vs F+regime (v5: 0.747) | |
 | — | convex "progress toward target" hand features | — | | 0.417 ± 0.056 vs v2 | |
 | — | hybrid: regression-informed asset weights | — | | 0.500 ± 0.057 vs v2 | |
-| — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 | |
+| — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 (0.16 after fixing a weight-index bug in runs/v4_lin.py) | |
+| — | same, fitted on END_TURN after-states (2000 v5 games, remote session) | — | | 0.190 vs v5 (pre-decision fit on same data: 0.253) | |
+| — | blends: v5 transition terms + regression static-asset weights | — | | 0.247 / 0.428 / 0.403 vs v5 | |
 
 Final agent robustness (h2h, 200 games each): vs v1 0.595, vs v3 0.555, vs WeightedRandom 1.000,
 vs catanatron AlphaBeta depth 2 with pruning (unclocked, 60 games) 0.883.
@@ -135,8 +137,11 @@ the reference machine (budget ≈ 1,000 ms).
    winning are not features worth *choosing*. "Holding the cards for a city" gets +1.48 VP, more than
    building the city gains (+1 VP + production − the bonus − the hand terms), so the learned bot hoards
    and never builds. Played knights even get a negative weight (collinear with army lead). This is the
-   pre-decision vs after-state problem TD-Gammon avoids by scoring after-states and bootstrapping;
-   a pure outcome regression on pre-decision states cannot fix it.
+   pre-decision vs after-state problem TD-Gammon avoids by scoring after-states and bootstrapping.
+   **Fitting on after-states alone does not fix it** (0.19 vs v5; ready_city still 1.07 VP, partial
+   1.59 VP): log-loss mostly explains between-game variance (board, dice), and rare, collinear states
+   get inflated weights. What would fix it is a *decision-level* signal — pairwise ranking of the
+   chosen after-state against its siblings, or genuine TD bootstrapping — not more outcome regression.
 7. **…but the regression is a good diagnostic for "static asset" weights.** It said diversity of
    resources (0.52 VP), open settlement spots (0.25), and late production were undervalued by hand.
    SPSA, independently and with no regression input, moved the same way: diversity ×2.3, and
