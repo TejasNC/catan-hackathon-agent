@@ -45,23 +45,24 @@ placeholders; split the parts however suits you. Times are cumulative.
 > its wins against F. **We did not make the bot cleverer everywhere. We made it greedy exactly where F is
 > blind.**
 
-## Part 4: How the bot thinks (B, 2:30–3:30)
+## Part 4: How the bot judges a position (B, 2:30–3:30)
 
-> Our bot scores every position with one formula, and **every weight in it is in victory points**. For
-> example, "a hand that can build a city right now is worth 0.47 points". We chose this on purpose,
-> because then a human can read every number and ask, "does this make sense?"
+> Our bot judges any position with one number. It is **our score minus 0.74 times the opponent's
+> score**, plus a small bonus for leading the knight race and the road race.
 >
-> On each move, the bot tries every legal move on a copy of the game, scores each result, and plays the
-> best. Two ideas made a big difference, and both came from watching games:
-> - We saw the bot finishing games with knights still in hand. Playing a knight looked like "losing a
->   card", because the gain comes one step later, from the robber move. So we score a knight together
->   with its robber move. That alone gave **5 points**.
-> - Buying a dev card in a simulation draws one random card, so the decision was a coin toss. We score
->   the **average** card instead.
+> A player's score adds up everything that turns into victory points: the points we already have; our
+> production, with wheat and ore weighted highest because they build cities and dev cards; how many
+> different resources we produce, because with no trading a missing one costs four-to-one; the good
+> spots we can still reach; our hand; and our dev cards and knights, which are exactly what F ignores.
 >
-> Then we tuned all the weights with SPSA, by self-play. Two copies with slightly different weights play
-> each other, and we move towards whichever wins. That was the biggest single jump: **+6.5 points**,
-> to 79 percent against F.
+> **Every weight is in victory points.** A hand that can build a city right now is worth 0.47 points;
+> buying a dev card is worth 0.30 on average. Anyone can read a number and ask "does that make sense?",
+> and that check later caught our biggest bug. And 0.74 means **race, don't block**: taking a point from
+> the opponent is worth less than gaining one ourselves.
+>
+> On each move, the bot plays every legal move on a copy of the game, scores the result, and picks the
+> best. We set the weights by hand first, then tuned them with SPSA by self-play. That was our biggest
+> jump: **+6.5 points**, to 79 percent against F.
 
 ## Part 5: Our most important failure (C, 3:30–4:30)
 
