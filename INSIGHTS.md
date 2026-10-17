@@ -89,11 +89,17 @@ held-out check.
 | v3 | + snake-draft opening lookahead | 0.713 ± 0.044 | 400 / 990000 | 0.537 ± 0.056 vs v2 | 257 ms |
 | v3 | (same, fresh seeds) | 0.726 ± 0.028 | 1000 / 123000 | | 270 ms |
 | **v5** | **+ SPSA self-play-tuned weights (final `bot/agent.py`)** | **0.791 ± 0.025** | 1000 / 123000 | 0.550 ± 0.049 vs v3 | 264 ms |
+| v5 | (same, third seed set, + low-clock fallback tier) | 0.787 ± 0.033 | 600 / 777000 | | 249 ms |
+| v6 | SPSA continued to 126 iterations | 0.785 ± 0.026 | 1000 / 123000 | 0.523 ± 0.049 vs v5 | 255 ms |
 | — | convex "progress toward target" hand features | — | | 0.417 ± 0.056 vs v2 | |
 | — | hybrid: regression-informed asset weights | — | | 0.500 ± 0.057 vs v2 | |
 | — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 | |
 
-Final agent robustness (h2h, 200 games each): vs v1 0.595, vs v3 0.555, vs WeightedRandom 1.000.
+Final agent robustness (h2h, 200 games each): vs v1 0.595, vs v3 0.555, vs WeightedRandom 1.000,
+vs catanatron AlphaBeta depth 2 with pruning (unclocked, 60 games) 0.883.
+v6 was not adopted: neither its head-to-head nor its F score was distinguishable from v5, and it had
+1 game over the clock on an oversubscribed box. That game led to a no-simulation fallback tier
+(`cpu_left < 0.10 s` → fixed build priorities) so a very long game can never fall into random moves.
 Official `catan_kit.evaluate` path: 20 games, 0 errors, 0 over budget, 225 ms mean CPU.
 Clock safety: max decision 33 ms, max opening decision 19 ms (allowance for decision 1 is 312 ms);
 0 games over budget in all 3,000+ clocked games. Mean CPU ≈ F's, i.e. ~160 ms/game expected on

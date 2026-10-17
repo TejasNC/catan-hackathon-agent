@@ -439,14 +439,22 @@ class Agent:
             return choice
         return best_completion(mine, free0)[1]
 
+    PANIC = {AT.BUILD_CITY: 0, AT.BUILD_SETTLEMENT: 1, AT.PLAY_KNIGHT_CARD: 2, AT.BUY_DEVELOPMENT_CARD: 3,
+             AT.ROLL: 4, AT.END_TURN: 5}
+
+    def panic(self, actions):
+        best, bi = 99, 0
+        for idx, a in enumerate(actions):
+            r = self.PANIC.get(a.action_type, 9)
+            if r < best:
+                best, bi = r, idx
+        return bi
+
     def decide(self, obs, playable_actions):
         me = obs.me
-        if obs.cpu_left is not None and obs.cpu_left < 0.03:
-            # nearly out of clock: no simulation at all, just keep the game moving safely
-            for idx, a in enumerate(playable_actions):
-                if a.action_type in (AT.ROLL, AT.END_TURN):
-                    return idx
-            return 0
+        if obs.cpu_left is not None and obs.cpu_left < 0.10:
+            # nearly out of clock (only very long games): no simulation, fixed priorities
+            return self.panic(playable_actions)
         game = obs.sample_world(self.rng)
         actions = playable_actions
         n = len(actions)
