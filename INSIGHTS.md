@@ -78,20 +78,92 @@ Decision procedure (one sampled world per decision):
 
 ## 5. Results log
 
-| # | Change | vs F | n | CPU/game (dev box) | Notes |
+All "vs F" rows use the official harness (`tools/par_eval.py`, CPU clock on). "h2h" rows are
+in-process self-play on paired boards (`tools/h2h.py`), which is what we *select* on; F is only the
+held-out check.
+
+| # | Change | vs F | n / seeds | h2h | CPU/game (dev box) |
 |---|---|---|---|---|---|
-| v1 | value function + trade lookahead | 0.635 ± 0.067 | 200 | 248 ms | first try |
-| v2 | + knight / road-building follow-up | **0.683 ± 0.046** | 400 | 256 ms | knights were left unplayed: their value only appears after the robber move |
+| v1 | value function + trade lookahead | 0.635 ± 0.067 | 200 / 990000 | | 248 ms |
+| v2 | + knight / road-building follow-up step | 0.683 ± 0.046 | 400 / 990000 | | 256 ms |
+| v3 | + snake-draft opening lookahead | 0.713 ± 0.044 | 400 / 990000 | 0.537 ± 0.056 vs v2 | 257 ms |
+| v3 | (same, fresh seeds) | 0.726 ± 0.028 | 1000 / 123000 | | 270 ms |
+| **v5** | **+ SPSA self-play-tuned weights (final `bot/agent.py`)** | **0.791 ± 0.025** | 1000 / 123000 | 0.550 ± 0.049 vs v3 | 264 ms |
+| — | convex "progress toward target" hand features | — | | 0.417 ± 0.056 vs v2 | |
+| — | hybrid: regression-informed asset weights | — | | 0.500 ± 0.057 vs v2 | |
+| — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 | |
 
-## 6. Insights so far
+Final agent robustness (h2h, 200 games each): vs v1 0.595, vs v3 0.555, vs WeightedRandom 1.000.
+Official `catan_kit.evaluate` path: 20 games, 0 errors, 0 over budget, 225 ms mean CPU.
+Clock safety: max decision 33 ms, max opening decision 19 ms (allowance for decision 1 is 312 ms);
+0 games over budget in all 3,000+ clocked games. Mean CPU ≈ F's, i.e. ~160 ms/game expected on
+the reference machine (budget ≈ 1,000 ms).
 
-1. **The evaluation is the bottleneck, not the search depth.** AlphaBeta on F's own value function
-   gains little, while a better 1-ply evaluation gains +18 points.
-2. **Exploit what the opponent's objective ignores.** F's value function counts public VPs only; our
-   bot gets Largest Army in ~89 % of its wins and holds ~1.5 VP cards — VP sources F does not contest.
+## 6. Insights
+
+1. **The evaluation is the bottleneck, not search depth.** AlphaBeta on F's own value function gains
+   little (57.5 % in 40 games, and it cannot fit the clock), while a better 1-ply evaluation took us
+   from 50 % to 64 % at the same CPU as F.
+2. **Exploit what the opponent's objective ignores.** F scores public VPs only, so VP cards and
+   played knights are invisible to it. Our bot wins Largest Army in ~89 % of its wins and holds
+   ~1.5 hidden VP cards per won game — VP sources F never contests.
 3. **Score chance nodes in expectation.** Scoring a dev-card purchase on the one sampled draw makes the
-   decision a coin flip; using the expected value of the unseen pile makes it stable.
-4. **Delayed-payoff actions need a follow-up step.** A knight's value is in the robber move it
-   triggers; a 1-ply evaluator sees only "a knight left my hand" and never plays it.
-5. Opening quality was *not* the gap: average pips of our two initial settlements 22.5 vs F's 22.0,
-   and similar in won and lost games.
+   decision a coin flip; the expected value of the unseen pile makes it stable. Same for robber steals.
+4. **Delayed-payoff actions need a follow-up step** (+5 points). A knight's value is in the robber
+   move it triggers; a 1-ply evaluator only sees "a knight left my hand" and ends the game with 1–1.4
+   knights unplayed.
+5. **Opening: the draft matters more than the spot.** Our greedy placements already had as many pips
+   as F's (22.5 vs 22.0). Thinking of the snake order (P1 picks one, P2 two, P1 one) and scoring a pick
+   as "my best pair minus the opponent's best pair" gave +3 points vs F.
+6. **Fitting a value function to outcomes is a trap for greedy play (the most instructive failure).**
+   Logistic regression of the winner on our features fits well (78 % holdout accuracy, log-loss 0.445)
+   but the bot using it wins only 10 % against the hand-tuned one. Reason: features that *predict*
+   winning are not features worth *choosing*. "Holding the cards for a city" gets +1.48 VP, more than
+   building the city gains (+1 VP + production − the bonus − the hand terms), so the learned bot hoards
+   and never builds. Played knights even get a negative weight (collinear with army lead). This is the
+   pre-decision vs after-state problem TD-Gammon avoids by scoring after-states and bootstrapping;
+   a pure outcome regression on pre-decision states cannot fix it.
+7. **…but the regression is a good diagnostic for "static asset" weights.** It said diversity of
+   resources (0.52 VP), open settlement spots (0.25), and late production were undervalued by hand.
+   SPSA, independently and with no regression input, moved the same way: diversity ×2.3, and
+   production re-weighted towards wheat/ore/brick.
+8. **SPSA self-play tuning is cheap and strong (+6.5 points vs F, F never used).** 93 iterations of
+   64 games θ⁺ vs θ⁻ (~12 min on 4 cores). The tuned vector beats its parent 55 % head-to-head, and
+   the gain transfers to F (72.6 → 79.1 %). Largest moves (VP units): knight in hand 0.25 → 0.09
+   (play them, don't hoard them), production per pip 0.11 → 0.055 with wheat/ore ×1.6, opponent weight
+   0.9 → 0.74 (race, don't block), diversity 0.12 → 0.27, ready-for-city 0.35 → 0.47.
+   SPSA's running θ⁺-vs-θ⁻ score stays ≈ 0.5 by design, so progress must be measured against a
+   frozen parent, never from the SPSA log itself.
+9. **Saving is hard for a 1-ply evaluator, and our convex "progress" fix made it worse** (41.7 % vs
+   parent): it made the bot hold cards instead of converting them, and under discard risk the tempo
+   loss outweighs the better builds.
+10. **Variance is huge**: ±4.4 points at n = 400; several "improvements" at n = 40–60 vanished at
+    n = 300. Paired boards (same board and dice for both seats) and ≥ 300-game head-to-heads were
+    necessary to see anything.
+
+## 7. Ideas not finished (for next time)
+
+* TD(λ) on after-states with self-play (the principled fix for insight 6).
+* Longer SPSA run (it was still moving) and SPSA on the opening-draft parameters separately.
+* Spending the unused ~80 % of the clock: an expectimax over the opponent's next roll for END_TURN
+  decisions, or several sampled worlds for hidden-VP-card risk late in the game.
+* Opponent adaptation across games in one process (allowed by the rules): e.g. detect a bot that never
+  contests Largest Army and lower our knight-play urgency.
+
+## 8. Original hand-set weights (v1–v3), for reference
+
+prod 0.11, prod_late 0.04, div 0.12, res_w (1.0, 1.0, 0.8, 1.1, 1.1), opp_k 0.9, exp1 0.02,
+exp2 0.008, exp_n 0.06, card 0.045, ready_settle 0.30, ready_city 0.35, ready_dev 0.10,
+partial 0.10, discard 0.18, knight_hand 0.25, dev_other 0.20, knight_played 0.22, army_lead 0.15,
+road_len 0.05, road_lead 0.25, port2 0.012, port3 0.20.
+
+## 9. Reproduce
+
+```
+python tools/par_eval.py --a bot/agent.py --b examples/f_agent.py --games 1000 --seed0 123000
+python tools/h2h.py bot/agent.py zoo/v3_agent.py 400          # self-play comparison
+python tools/spsa.py 100 64 runs/spsa.jsonl                     # SPSA tuning (no F)
+python tools/gen_data.py zoo/v2_agent.py 1500 3 runs/data 0.03 && python tools/fit.py runs/data
+```
+
+Submission: zip the `bot/` folder (`agent.py` only; imports catanatron + stdlib).
