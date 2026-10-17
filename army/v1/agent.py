@@ -1,0 +1,311 @@
+"""Strategic Catan agent: hand-built value function in VP units + shallow within-turn planning.
+
+Structure
+  * value(): V(state) = Score(me) - Score(opp), every term expressed in victory-point units.
+  * decide(): one sampled world per decision; every legal action is simulated on a copy and scored.
+    Resource-changing actions (bank trades, year of plenty, monopoly) get a second step: their score
+    is the best build reachable after them this turn. Random outcomes (dev-card draw, robber steal)
+    are scored in expectation instead of on the sampled outcome.
+"""
+import os
+import random
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from catanatron.models.enums import Action, ActionType, SETTLEMENT, CITY, ROAD
+from catanatron.models.board import STATIC_GRAPH
+
+RES = ["WOOD", "BRICK", "SHEEP", "WHEAT", "ORE"]
+DEVS = ["KNIGHT", "VICTORY_POINT", "ROAD_BUILDING", "YEAR_OF_PLENTY", "MONOPOLY"]
+PIPS = {2: 1, 3: 2, 4: 3, 5: 4, 6: 5, 8: 5, 9: 4, 10: 3, 11: 2, 12: 1}
+NEIGH = {n: tuple(STATIC_GRAPH.neighbors(n)) for n in STATIC_GRAPH.nodes}
+AT = ActionType
+
+DEFAULT = dict(
+    # production value per pip (pips/36 = cards per roll), scaled by game phase
+    prod=0.11, prod_late=0.04, div=0.12,
+    res_w=(1.0, 1.0, 0.8, 1.1, 1.1),        # WOOD BRICK SHEEP WHEAT ORE
+    opp_k=0.9,                              # weight of opponent's score
+    exp1=0.020, exp2=0.008,                  # expansion: pips of best reachable spots (d<=1, d=2)
+    exp_n=0.06,                              # count of currently buildable spots (capped)
+    card=0.045,                             # each resource card in hand
+    ready_settle=0.30, ready_city=0.35, ready_dev=0.10,
+    partial=0.10,
+    discard=0.18,                           # per card above 7, times P(seven)
+    knight_hand=0.25, dev_other=0.20, knight_played=0.22, army_lead=0.15,
+    road_len=0.05, road_lead=0.25,
+    port2=0.012, port3=0.20,
+    settle_spot=0.0,
+)
+
+
+class Ctx:
+    """Per-map precomputation (cached by map signature)."""
+
+    def __init__(self, m):
+        self.node_tiles = {}
+        for n, tiles in m.adjacent_tiles.items():
+            self.node_tiles[n] = [(t.resource, PIPS.get(t.number, 0), t) for t in tiles if t.resource]
+        self.node_pips = {n: sum(p for _, p, _ in v) for n, v in self.node_tiles.items()}
+        self.port_of = {}
+        for r, nodes in m.port_nodes.items():
+            for n in nodes:
+                self.port_of[n] = r
+        self.land = set(m.land_nodes)
+
+
+_CTX = {}
+
+
+def ctx_for(game):
+    m = game.state.board.map
+    key = id(m)
+    c = _CTX.get(key)
+    if c is None:
+        if len(_CTX) > 8:
+            _CTX.clear()
+        c = Ctx(m)
+        _CTX[key] = c
+    return c
+
+
+class Valuer:
+    def __init__(self, params=None):
+        self.p = dict(DEFAULT)
+        if params:
+            self.p.update(params)
+
+    # ---- per player pieces -------------------------------------------------------------------
+    def production(self, st, c, color, robber_tile):
+        prod = [0.0] * 5
+        b = st.buildings_by_color[color]
+        for mult, kind in ((1, SETTLEMENT), (2, CITY)):
+            for n in b[kind]:
+                for r, p, t in c.node_tiles[n]:
+                    if t is not robber_tile:
+                        prod[RIDX[r]] += mult * p
+        return prod
+
+    def expansion(self, st, c, color):
+        """Pips of the best settlement spots reachable with 0/1/2 more roads."""
+        board = st.board
+        buildable = board.board_buildable_ids
+        comps = board.connected_components[color]
+        if not comps:
+            return 0.0, 0.0, 0
+        frontier = set().union(*comps)
+        roads = board.roads
+        bld = board.buildings
+        d0 = [n for n in frontier if n in buildable]
+        seen = set(frontier)
+        lvl1 = set()
+        for n in frontier:
+            o = bld.get(n)
+            if o is not None and o[0] != color:
+                continue
+            for nb in NEIGH[n]:
+                if nb in seen:
+                    continue
+                rc = roads.get((n, nb))
+                if rc is not None and rc != color:
+                    continue
+                lvl1.add(nb)
+        seen |= lvl1
+        lvl2 = set()
+        for n in lvl1:
+            if n in bld:
+                continue
+            for nb in NEIGH[n]:
+                if nb in seen:
+                    continue
+                if roads.get((n, nb)) is not None:
+                    continue
+                lvl2.add(nb)
+        np_ = c.node_pips
+        best1 = sorted([np_.get(n, 0) for n in d0] + [0.8 * np_.get(n, 0) for n in lvl1 if n in buildable],
+                       reverse=True)[:2]
+        best2 = sorted([np_.get(n, 0) for n in lvl2 if n in buildable], reverse=True)[:2]
+        return sum(best1), sum(best2), len(d0)
+
+    def score(self, game, color, me, c, robber_tile):
+        p = self.p
+        st = game.state
+        ps = st.player_state
+        i = st.color_to_index[color]
+        k = f"P{i}_"
+        if me:
+            vp = ps[k + "ACTUAL_VICTORY_POINTS"]
+        else:
+            vp = ps[k + "VICTORY_POINTS"]
+        # phase: production matters less as the end approaches
+        lead_vp = max(ps["P0_VICTORY_POINTS"], ps["P1_VICTORY_POINTS"])
+        phase = min(1.0, max(0.0, (lead_vp - 2) / 7.0))
+        wprod = p["prod"] * (1 - phase) + p["prod_late"] * phase
+
+        prod = self.production(st, c, color, robber_tile)
+        rw = p["res_w"]
+        s = vp
+        s += wprod * sum(prod[r] * rw[r] for r in range(5))
+        s += p["div"] * (1 - phase) * sum(1 for x in prod if x > 0)
+
+        e1, e2, nb = self.expansion(st, c, color)
+        settle_left = ps[k + "SETTLEMENTS_AVAILABLE"]
+        if settle_left > 0:
+            s += (1 - phase * 0.5) * (p["exp1"] * e1 + p["exp2"] * e2 + p["exp_n"] * min(nb, 2))
+
+        # hand
+        hand = [ps[k + r + "_IN_HAND"] for r in RES]
+        n_hand = sum(hand)
+        s += p["card"] * min(n_hand, 8)
+        if n_hand > 7:
+            s -= p["discard"] * (n_hand // 2)
+        wd, br, sh, wh, ore = hand
+        if wd >= 1 and br >= 1 and sh >= 1 and wh >= 1 and nb > 0 and settle_left > 0:
+            s += p["ready_settle"]
+        if wh >= 2 and ore >= 3 and st.buildings_by_color[color][SETTLEMENT] and ps[k + "CITIES_AVAILABLE"] > 0:
+            s += p["ready_city"]
+        if sh >= 1 and wh >= 1 and ore >= 1:
+            s += p["ready_dev"]
+        dist_city = (max(2 - wh, 0) + max(3 - ore, 0)) / 5.0
+        dist_set = (max(1 - wd, 0) + max(1 - br, 0) + max(1 - sh, 0) + max(1 - wh, 0)) / 4.0
+        s += p["partial"] * (2 - dist_city - dist_set) / 2
+
+        # dev cards / army
+        knights_played = ps[k + "PLAYED_KNIGHT"]
+        if me:
+            kh = ps[k + "KNIGHT_IN_HAND"]
+            other = ps[k + "ROAD_BUILDING_IN_HAND"] + ps[k + "YEAR_OF_PLENTY_IN_HAND"] + ps[k + "MONOPOLY_IN_HAND"]
+            s += p["knight_hand"] * kh + p["dev_other"] * other
+        else:
+            ndev = sum(ps[k + d + "_IN_HAND"] for d in DEVS)
+            s += ndev * (0.56 * p["knight_hand"] + 0.24 * p["dev_other"] + 0.2 * 1.0)
+        s += p["knight_played"] * min(knights_played, 4)
+        # ports
+        ports = st.board.get_player_port_resources(color)
+        for r in ports:
+            if r is None:
+                s += p["port3"] * (1 - phase * 0.5)
+            else:
+                s += p["port2"] * prod[RIDX[r]]
+        s += p["road_len"] * min(ps[k + "LONGEST_ROAD_LENGTH"], 10)
+        return s, knights_played, ps[k + "LONGEST_ROAD_LENGTH"]
+
+    def value(self, game, me_color):
+        st = game.state
+        c = ctx_for(game)
+        robber_tile = st.board.map.land_tiles.get(st.board.robber_coordinate)
+        opp_color = st.colors[1 - st.color_to_index[me_color]]
+        s1, k1, r1 = self.score(game, me_color, True, c, robber_tile)
+        s2, k2, r2 = self.score(game, opp_color, False, c, robber_tile)
+        p = self.p
+        v = s1 - p["opp_k"] * s2
+        v += p["army_lead"] * max(-2, min(2, k1 - k2))
+        v += p["road_lead"] * max(-2, min(2, r1 - r2)) / 2
+        return v
+
+
+RIDX = {r: i for i, r in enumerate(RES)}
+
+
+class Agent:
+    def __init__(self, params=None):
+        self.rng = random.Random(0)
+        self.V = Valuer(params)
+
+    # expected value of one unknown development card for me (VP units, matching Valuer.score)
+    def dev_ev(self, game, me):
+        p = self.V.p
+        st = game.state
+        ps = st.player_state
+        i = st.color_to_index[me]
+        # unseen pile composition from my seat
+        counts = {"KNIGHT": 14, "VICTORY_POINT": 5, "ROAD_BUILDING": 2, "YEAR_OF_PLENTY": 2, "MONOPOLY": 2}
+        for d in DEVS:
+            counts[d] -= ps[f"P{i}_{d}_IN_HAND"] + ps.get(f"P{i}_PLAYED_{d}", 0) + ps.get(f"P{1-i}_PLAYED_{d}", 0)
+        tot = sum(max(0, x) for x in counts.values())
+        if tot <= 0:
+            return 0.0
+        ev = (max(0, counts["KNIGHT"]) * p["knight_hand"] + max(0, counts["VICTORY_POINT"]) * 1.0 +
+              (max(0, counts["ROAD_BUILDING"]) + max(0, counts["YEAR_OF_PLENTY"]) + max(0, counts["MONOPOLY"]))
+              * p["dev_other"]) / tot
+        return ev
+
+    def dev_val(self, card):
+        p = self.V.p
+        if card == "KNIGHT":
+            return p["knight_hand"]
+        if card == "VICTORY_POINT":
+            return 1.0
+        return p["dev_other"]
+
+    def eval_action(self, game, action, me):
+        """Score of the state after `action` (expected over its random outcome where cheap)."""
+        at = action.action_type
+        if at == AT.MOVE_ROBBER and action.value[1] is not None:
+            g = game.copy()
+            g.execute(Action(action.color, at, (action.value[0], None)), validate_action=False)
+            # a steal: +1 random card for me, -1 for them
+            return self.V.value(g, me) + self.V.p["card"] * (1 + self.V.p["opp_k"]), g
+        g = game.copy()
+        try:
+            if at == AT.BUY_DEVELOPMENT_CARD:
+                i = g.state.color_to_index[me]
+                before = {d: g.state.player_state[f"P{i}_{d}_IN_HAND"] for d in DEVS}
+                g.execute(action, validate_action=False)
+                drawn = [d for d in DEVS if g.state.player_state[f"P{i}_{d}_IN_HAND"] > before[d]]
+                v = self.V.value(g, me)
+                if drawn:
+                    v += self.dev_ev(game, me) - self.dev_val(drawn[0])
+                return v, g
+            g.execute(action, validate_action=False)
+        except Exception:
+            return -1e9, None
+        return self.V.value(g, me), g
+
+    def decide(self, obs, playable_actions):
+        me = obs.me
+        game = obs.sample_world(self.rng)
+        actions = playable_actions
+        n = len(actions)
+        if n == 1:
+            return 0
+        cheap = obs.cpu_left is not None and obs.cpu_left < 0.05
+        st = game.state
+
+        # fast paths
+        if all(a.action_type == AT.ROLL or a.action_type == AT.PLAY_KNIGHT_CARD for a in actions):
+            pass
+
+        best_i, best_v = 0, -1e18
+        scored = []
+        for idx, a in enumerate(actions):
+            at = a.action_type
+            if at == AT.ROLL:
+                v = self.V.value(game, me) + 0.0
+                g2 = None
+            else:
+                v, g2 = self.eval_action(game, a, me)
+            scored.append((v, idx, g2))
+            if v > best_v:
+                best_v, best_i = v, idx
+
+        if cheap or st.is_initial_build_phase:
+            return best_i
+
+        # second step for resource-changing actions: value = best build reachable afterwards
+        if st.current_prompt.name == "PLAY_TURN" and not st.is_road_building:
+            trade_like = [(v, idx, g2) for (v, idx, g2) in scored if g2 is not None and actions[idx].action_type in
+                          (AT.MARITIME_TRADE, AT.PLAY_YEAR_OF_PLENTY, AT.PLAY_MONOPOLY)]
+            trade_like.sort(key=lambda x: -x[0])
+            for v, idx, g2 in trade_like[:6]:
+                follow = [b for b in g2.playable_actions if b.action_type in
+                          (AT.BUILD_CITY, AT.BUILD_SETTLEMENT, AT.BUY_DEVELOPMENT_CARD, AT.BUILD_ROAD)]
+                bv = v
+                for b in follow[:12]:
+                    vb, _ = self.eval_action(g2, b, me)
+                    if vb > bv:
+                        bv = vb
+                if bv > best_v + 1e-9:
+                    best_v, best_i = bv, idx
+        return best_i
