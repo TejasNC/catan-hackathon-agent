@@ -187,6 +187,7 @@ common dice, split-half unbiased regret).** Robber moves (n=247): +0.2 ± 1.4 wi
 (n=112): +1.6 ± 1.3; ending the turn (n=74): +1.5 ± 2.3; opening roads/settlements, trades, builds,
 knight timing: ≈ 0. The one clear flaw: **Monopoly played before rolling, +7.3 ± 5.7** (rolling first adds
 information, and a pre-roll Monopoly swells the hand before a possible 7) → fixed in `bot_cop1fix/`.
+**Red-team of comboop1** (separate session): 0 errors in 700 clocked games, no exploit found by 3 adversarial bots, but 2/500 very long games ran out of clock because the turn-plan layer had no deadline (single decisions up to 420 ms at 0.45 s left) → `bot_cop1fix` only plans with ≥ 0.9 s left (vs F 0.770, 400 clocked games, 0 over budget, mean CPU 300 ms vs 427 ms).
 An early n=35 robber signal (+2.9 ± 2.8) vanished at n=247, and re-weighting robber moves did nothing
 (0.498 / 0.502 vs v5, n=1200): small audit samples mislead just like small win-rate samples.
 
