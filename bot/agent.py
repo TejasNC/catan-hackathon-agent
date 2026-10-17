@@ -37,6 +37,8 @@ DEFAULT = dict(
     road_len=0.05, road_lead=0.25,
     port2=0.012, port3=0.20,
     settle_spot=0.0,
+    prog_city=0.0, prog_settle=0.0, prog_dev=0.0,   # convex progress toward a build target
+    draft=1.0,                                      # 1 = snake-draft lookahead for the opening
 )
 
 
@@ -170,6 +172,12 @@ class Valuer:
         dist_city = (max(2 - wh, 0) + max(3 - ore, 0)) / 5.0
         dist_set = (max(1 - wd, 0) + max(1 - br, 0) + max(1 - sh, 0) + max(1 - wh, 0)) / 4.0
         s += p["partial"] * (2 - dist_city - dist_set) / 2
+        if p["prog_city"] and st.buildings_by_color[color][SETTLEMENT] and ps[k + "CITIES_AVAILABLE"] > 0:
+            s += p["prog_city"] * ((min(wh, 2) + min(ore, 3)) / 5.0) ** 2
+        if p["prog_settle"] and settle_left > 0 and (nb > 0 or e1 > 0):
+            s += p["prog_settle"] * ((min(wd, 1) + min(br, 1) + min(sh, 1) + min(wh, 1)) / 4.0) ** 2
+        if p["prog_dev"]:
+            s += p["prog_dev"] * ((min(sh, 1) + min(wh, 1) + min(ore, 1)) / 3.0) ** 2
 
         # dev cards / army
         knights_played = ps[k + "PLAYED_KNIGHT"]
@@ -191,7 +199,64 @@ class Valuer:
         s += p["road_len"] * min(ps[k + "LONGEST_ROAD_LENGTH"], 10)
         return s, knights_played, ps[k + "LONGEST_ROAD_LENGTH"]
 
+    def lin_feats(self, game, color, me, c, robber_tile, phase):
+        """Raw features (same formulas as tools/feats.py) for the learned linear evaluation."""
+        st = game.state; ps = st.player_state
+        k = f"P{st.color_to_index[color]}_"
+        prod = self.production(st, c, color, robber_tile)
+        ndev = sum(ps[k + d + "_IN_HAND"] for d in DEVS)
+        if me:
+            f = [ps[k + "ACTUAL_VICTORY_POINTS"]]
+        else:
+            f = [ps[k + "VICTORY_POINTS"] + 0.2 * ndev]
+        f += [x * (1 - phase) for x in prod] + [x * phase for x in prod]
+        f.append((1 - phase) * sum(1 for x in prod if x > 0))
+        e1, e2, nb = self.expansion(st, c, color)
+        sl = ps[k + "SETTLEMENTS_AVAILABLE"] > 0
+        m = (1 - phase * 0.5) * sl
+        f += [m * e1, m * e2, m * min(nb, 2)]
+        hand = [ps[k + r + "_IN_HAND"] for r in RES]; n = sum(hand)
+        f += [min(n, 8), (n // 2) if n > 7 else 0]
+        wd, br, sh, wh, ore = hand
+        f.append(1.0 if (wd and br and sh and wh and nb > 0 and sl) else 0.0)
+        f.append(1.0 if (wh >= 2 and ore >= 3 and st.buildings_by_color[color][SETTLEMENT]
+                         and ps[k + "CITIES_AVAILABLE"] > 0) else 0.0)
+        f.append(1.0 if (sh and wh and ore) else 0.0)
+        dc = (max(2 - wh, 0) + max(3 - ore, 0)) / 5.0
+        ds = (max(1 - wd, 0) + max(1 - br, 0) + max(1 - sh, 0) + max(1 - wh, 0)) / 4.0
+        f.append((2 - dc - ds) / 2)
+        if me:
+            f.append(ps[k + "KNIGHT_IN_HAND"])
+            f.append(ps[k + "ROAD_BUILDING_IN_HAND"] + ps[k + "YEAR_OF_PLENTY_IN_HAND"] + ps[k + "MONOPOLY_IN_HAND"])
+        else:
+            f.append(0.56 * ndev)
+            f.append(0.24 * ndev)
+        kp = ps[k + "PLAYED_KNIGHT"]
+        f.append(min(kp, 4))
+        ports = st.board.get_player_port_resources(color)
+        f.append(sum((1 - phase * 0.5) for r in ports if r is None))
+        f.append(sum(prod[RIDX[r]] for r in ports if r is not None))
+        rl = ps[k + "LONGEST_ROAD_LENGTH"]
+        f.append(min(rl, 10))
+        return f, kp, rl
+
+    def lin_value(self, game, me_color):
+        st = game.state; ps = st.player_state
+        c = ctx_for(game)
+        robber_tile = st.board.map.land_tiles.get(st.board.robber_coordinate)
+        lead_vp = max(ps["P0_VICTORY_POINTS"], ps["P1_VICTORY_POINTS"])
+        phase = min(1.0, max(0.0, (lead_vp - 2) / 7.0))
+        opp = st.colors[1 - st.color_to_index[me_color]]
+        a, k1, r1 = self.lin_feats(game, me_color, True, c, robber_tile, phase)
+        b, k2, r2 = self.lin_feats(game, opp, False, c, robber_tile, phase)
+        w = self.p["lin"]
+        v = sum(wi * (x - y) for wi, x, y in zip(w, a, b))
+        v += w[-2] * max(-2, min(2, k1 - k2)) + w[-1] * max(-2, min(2, r1 - r2)) / 2
+        return v
+
     def value(self, game, me_color):
+        if "lin" in self.p:
+            return self.lin_value(game, me_color)
         st = game.state
         c = ctx_for(game)
         robber_tile = st.board.map.land_tiles.get(st.board.robber_coordinate)
@@ -263,16 +328,130 @@ class Agent:
             return -1e9, None
         return self.V.value(g, me), g
 
+    def greedy_followup(self, g, me, steps):
+        """Play `steps` greedy forced-phase decisions (robber placement, free roads) and score."""
+        v = self.V.value(g, me)
+        for _ in range(steps):
+            if g.state.current_color() != me:
+                break
+            acts = g.playable_actions
+            if not acts:
+                break
+            best = None
+            for b in acts:
+                if b.action_type not in (AT.MOVE_ROBBER, AT.BUILD_ROAD):
+                    continue
+                vb, gb = self.eval_action(g, b, me)
+                if best is None or vb > best[0]:
+                    best = (vb, gb)
+            if best is None or best[1] is None:
+                break
+            v, g = best
+        return v
+
+    # ---- opening: snake-draft lookahead on a static pair value ---------------------------------
+    def pair_value(self, nodes, c):
+        p = self.V.p
+        rw = p["res_w"]
+        prod = [0.0] * 5
+        ports = set()
+        for n in nodes:
+            for r, pp, _ in c.node_tiles[n]:
+                prod[RIDX[r]] += pp
+            if n in c.port_of:
+                ports.add(c.port_of[n])
+        v = p["prod"] * sum(prod[r] * rw[r] for r in range(5)) + p["div"] * sum(1 for x in prod if x > 0)
+        for r in ports:
+            v += p["port3"] if r is None else p["port2"] * prod[RIDX[r]]
+        return v
+
+    def draft_pick(self, game, me, candidates):
+        st = game.state
+        c = ctx_for(game)
+        opp = st.colors[1 - st.color_to_index[me]]
+        mine = list(st.buildings_by_color[me][SETTLEMENT])
+        theirs = list(st.buildings_by_color[opp][SETTLEMENT])
+        lam = self.V.p["opp_k"]
+        free0 = set(st.board.board_buildable_ids)
+
+        def block(free, n):
+            f = set(free)
+            f.discard(n)
+            for nb in NEIGH[n]:
+                f.discard(nb)
+            return f
+
+        def best_completion(base, free):
+            best, bn = -1e9, None
+            for n in free:
+                v = self.pair_value(base + [n], c)
+                if v > best:
+                    best, bn = v, n
+            return best, bn
+
+        single = sorted(free0, key=lambda n: -self.pair_value([n], c))
+        if len(mine) == 0 and len(theirs) == 0:          # first pick of the game
+            best, choice = -1e9, None
+            for a1 in single[:15]:
+                f = block(free0, a1)
+                b1 = max(f, key=lambda n: self.pair_value([n], c))
+                f = block(f, b1)
+                vb, b2 = best_completion([b1], f)
+                f = block(f, b2)
+                va, _ = best_completion([a1], f)
+                sc = va - lam * vb
+                if sc > best:
+                    best, choice = sc, a1
+            return choice
+        if len(mine) == 0 and len(theirs) == 1:          # second seat, two picks in a row
+            best, choice = -1e9, None
+            top = single[:14]
+            for x in top:
+                fx = block(free0, x)
+                for y in top:
+                    if y == x or y not in fx:
+                        continue
+                    f = block(fx, y)
+                    vo, _ = best_completion(theirs, f)
+                    sc = self.pair_value([x, y], c) - lam * vo
+                    if sc > best:
+                        best, choice = sc, x
+            return choice
+        if len(mine) == 1 and len(theirs) == 1:          # second seat, second pick
+            best, choice = -1e9, None
+            for y in single[:25]:
+                f = block(free0, y)
+                vo, _ = best_completion(theirs, f)
+                sc = self.pair_value(mine + [y], c) - lam * vo
+                if sc > best:
+                    best, choice = sc, y
+            return choice
+        return best_completion(mine, free0)[1]
+
     def decide(self, obs, playable_actions):
         me = obs.me
+        if obs.cpu_left is not None and obs.cpu_left < 0.03:
+            # nearly out of clock: no simulation at all, just keep the game moving safely
+            for idx, a in enumerate(playable_actions):
+                if a.action_type in (AT.ROLL, AT.END_TURN):
+                    return idx
+            return 0
         game = obs.sample_world(self.rng)
         actions = playable_actions
         n = len(actions)
         if n == 1:
             return 0
-        cheap = obs.cpu_left is not None and obs.cpu_left < 0.05
+        cheap = obs.cpu_left is not None and obs.cpu_left < 0.25
         st = game.state
 
+        if self.V.p["draft"] and st.is_initial_build_phase and st.current_prompt.name == "BUILD_INITIAL_SETTLEMENT":
+            try:
+                node = self.draft_pick(game, me, [a.value for a in actions])
+                for idx, a in enumerate(actions):
+                    if a.value == node:
+                        return idx
+            except Exception:
+                pass
         # fast paths
         if all(a.action_type == AT.ROLL or a.action_type == AT.PLAY_KNIGHT_CARD for a in actions):
             pass
@@ -292,6 +471,15 @@ class Agent:
 
         if cheap or st.is_initial_build_phase:
             return best_i
+
+        # dev cards whose payoff comes from the follow-up decisions (robber move, free roads)
+        for v, idx, g2 in scored:
+            at = actions[idx].action_type
+            if g2 is None or at not in (AT.PLAY_KNIGHT_CARD, AT.PLAY_ROAD_BUILDING):
+                continue
+            bv = self.greedy_followup(g2, me, 2 if at == AT.PLAY_ROAD_BUILDING else 1)
+            if bv > best_v + 1e-9:
+                best_v, best_i = bv, idx
 
         # second step for resource-changing actions: value = best build reachable afterwards
         if st.current_prompt.name == "PLAY_TURN" and not st.is_road_building:
