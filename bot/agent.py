@@ -23,22 +23,33 @@ NEIGH = {n: tuple(STATIC_GRAPH.neighbors(n)) for n in STATIC_GRAPH.nodes}
 AT = ActionType
 
 DEFAULT = dict(
-    # production value per pip (pips/36 = cards per roll), scaled by game phase
-    prod=0.11, prod_late=0.04, div=0.12,
-    res_w=(1.0, 1.0, 0.8, 1.1, 1.1),        # WOOD BRICK SHEEP WHEAT ORE
-    opp_k=0.9,                              # weight of opponent's score
-    exp1=0.020, exp2=0.008,                  # expansion: pips of best reachable spots (d<=1, d=2)
-    exp_n=0.06,                              # count of currently buildable spots (capped)
-    card=0.045,                             # each resource card in hand
-    ready_settle=0.30, ready_city=0.35, ready_dev=0.10,
-    partial=0.10,
-    discard=0.18,                           # per card above 7, times P(seven)
-    knight_hand=0.25, dev_other=0.20, knight_played=0.22, army_lead=0.15,
-    road_len=0.05, road_lead=0.25,
-    port2=0.012, port3=0.20,
-    settle_spot=0.0,
-    prog_city=0.0, prog_settle=0.0, prog_dev=0.0,   # convex progress toward a build target
-    draft=1.0,                                      # 1 = snake-draft lookahead for the opening
+    # SPSA self-play tuned (93 iterations x 64 games, theta+ vs theta-; F never used).
+    # Hand-set starting values are kept in INSIGHTS.md.
+    prod=0.0550,
+    prod_late=0.0495,
+    div=0.2736,
+    res_w=(1.0617, 1.3017, 1.1478, 1.6027, 1.5802),
+    opp_k=0.7374,
+    exp1=0.0192,
+    exp2=0.0100,
+    exp_n=0.0502,
+    card=0.0608,
+    ready_settle=0.3021,
+    ready_city=0.4661,
+    ready_dev=0.1179,
+    partial=0.0586,
+    discard=0.1765,
+    knight_hand=0.0945,
+    dev_other=0.1800,
+    knight_played=0.1565,
+    army_lead=0.2015,
+    road_len=0.0395,
+    road_lead=0.2572,
+    port2=0.0100,
+    port3=0.1932,
+    settle_spot=0.0000,
+    prog_city=0.0, prog_settle=0.0, prog_dev=0.0,   # convex progress toward a build target (tested: worse)
+    draft=1.0,                                      # snake-draft lookahead for the opening
 )
 
 
