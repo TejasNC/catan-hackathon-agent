@@ -93,6 +93,12 @@ held-out check.
 | v6 | SPSA continued to 126 iterations | 0.785 ± 0.026 | 1000 / 123000 | 0.523 ± 0.049 vs v5 | 255 ms |
 | — | SPSA round 2 (170 more iterations from v5 weights + draft) | — | | 0.503 ± 0.040 vs v5 (n=600) | |
 | — | endgame "danger mode" (opponent weight rises above 6 VP), 2 strengths | — | | 0.497 ± 0.040 each | |
+| — | regime B (expand→build resource weights, fade expansion, late dev value; remote session) | 0.773 ± 0.034 (v5 same seeds 0.777) | 600 / 123000 | 0.517 ± 0.020 vs v5 (n=2400) | |
+| — | turn-plan lookahead, top-3 actions, outcomes in expectation (remote session) | 0.785 | 600 / 123000 | 0.519 ± 0.023 vs v5 (n=1800) | 368 ms |
+| — | opponent-roll expectimax at END_TURN (remote session) | — | | 0.42–0.46 | |
+| — | robber lookahead (remote session) | — | | 0.498 | |
+| — | combo: regime B + turn-plan | — | | 0.508 ± 0.028 vs v5 (n=1200) | |
+| — | stronger army race / road race / both (vs F+regime bot) | — | | 0.745 / 0.732 / 0.728 vs F+regime (v5: 0.747) | |
 | — | convex "progress toward target" hand features | — | | 0.417 ± 0.056 vs v2 | |
 | — | hybrid: regression-informed asset weights | — | | 0.500 ± 0.057 vs v2 | |
 | — | pure learned linear eval (logistic regression on outcomes) | — | | **0.100 ± 0.034** vs v2 | |
@@ -152,6 +158,20 @@ the reference machine (budget ≈ 1,000 ms).
 **Leaderboard (organisers' machine), submission #1 = v5:** vs F 0.779 ± 0.026, vs O 0.626 ± 0.030,
 164 ms mean CPU, 0 over clock, 0 faults. Our local F estimate (0.787–0.791) matched the leaderboard.
 SPSA has plateaued: a second round from the tuned weights gives 0.503 head-to-head.
+
+**Second, independent strong benchmark.** We implemented the team's "F + regime correction" bot
+(`zoo/fregime_agent.py`, beats F 0.570 ± 0.049 in 400 games, never used for training). Against it:
+v5 0.747, turn-plan 0.743, combo 0.738, regime B 0.733 (600 games each, same boards). The difficulty
+ladder is consistent: F 0.79 > F+regime 0.75 > O 0.63.
+
+**Plateau.** Every structural change since v5 (regime weights, turn planning, opponent-roll expectimax,
+robber lookahead, danger mode, a second SPSA round, race weights) lands within ±2 SE of v5 on self-play,
+on F, and on the F+regime bot. Two +1.7 SE changes did not add up (combo 0.508). Lesson: once a
+1-ply value function is tuned by self-play, small structural changes are absorbed by the weights;
+the next real gain needs a different model class (e.g. after-state TD learning), not more terms.
+In games v5 loses to the stronger bot, the opponent holds Largest Army / Longest Road ~58 % of the
+time (vs ~10 % in v5's wins) — but weighting those races more does not help, so it is a symptom
+of a bad position, not a decision error.
 
 ## 7. Ideas not finished (for next time)
 

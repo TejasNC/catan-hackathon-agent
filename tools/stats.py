@@ -11,7 +11,7 @@ for k in range(n):
     st = g.state; ps = st.player_state
     for col, tag in ((Color.RED, "A"), (Color.BLUE, "B")):
         i = st.color_to_index[col]; b = st.buildings_by_color[col]
-        c = agg[res if tag == "A" else (not res)]
+        c = agg[res]
         c[tag+"_settle"] += len(b['SETTLEMENT']); c[tag+"_city"] += len(b['CITY']); c[tag+"_roads"] += len(b['ROAD'])
         c[tag+"_army"] += ps[f'P{i}_HAS_ARMY']; c[tag+"_lroad"] += ps[f'P{i}_HAS_ROAD']
         c[tag+"_vpcard"] += ps[f'P{i}_VICTORY_POINT_IN_HAND']; c[tag+"_knights"] += ps[f'P{i}_PLAYED_KNIGHT']
@@ -19,7 +19,7 @@ for k in range(n):
         c[tag+"_vp"] += ps[f'P{i}_ACTUAL_VICTORY_POINTS']
     for r in st.action_records:
         tag = "A" if r.action.color == Color.RED else "B"
-        agg[res if tag == "A" else (not res)][tag + "_" + r.action.action_type.name] += 1
+        agg[res][tag + "_" + r.action.action_type.name] += 1
     agg[res]["n"] += 1; agg[res]["turns"] += st.num_turns
 print("A win rate", wins / n)
 for res in (True, False):
