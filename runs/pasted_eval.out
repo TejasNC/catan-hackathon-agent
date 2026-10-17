@@ -1,0 +1,9 @@
+pasted_agent.py vs v5_final.py: 0.5183 +-0.0400 (n=600)
+pasted_agent.py vs agent.py: 0.5100 +-0.0400 (n=600)
+pasted_agent.py vs fregime_agent.py: 0.7600 +-0.0342 (n=600)
+A win rate 0.7917 +-0.0325 (475/600) no_winner=0
+A mean CPU/game 273.6 ms worst 1400.0 ms over_budget=0 errors=0 timeouts=0 crashes=0 decisions=30913
+B mean CPU/game 226.3 ms over_budget=1
+A wins as first 240/300, as second 235/300
+wall 97.3s
+Sat Oct 17 15:09:53 IST 2026
