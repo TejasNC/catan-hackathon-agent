@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+.DS_Store
+*.zip
+# large self-play datasets (regenerate with tools/gen_data.py)
+experiments/*.npz
+experiments/records/
+docs/report/.mjx/
