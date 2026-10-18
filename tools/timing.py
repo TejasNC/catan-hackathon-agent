@@ -3,7 +3,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tools.selfplay import load_agent_class, play
 import collections
 A = load_agent_class(sys.argv[1])
-F = load_agent_class("examples/f_agent.py")
+F = load_agent_class("examples/valuefn_agent.py")
 times = collections.defaultdict(list)
 class Timed:
     def __init__(self, a): self.a = a

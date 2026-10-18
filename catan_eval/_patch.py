@@ -30,7 +30,7 @@ import sys
 import catanatron.models.actions as _actions
 
 _APPLIED = False
-_REEXEC_FLAG = "_CATAN_KIT_HASHSEED_REEXEC"
+_REEXEC_FLAG = "_CATAN_EVAL_HASHSEED_REEXEC"
 
 
 def ensure_hash_seed():
@@ -47,13 +47,13 @@ def ensure_hash_seed():
     running program. The only reliable fix is to start again. Call this FIRST, before any other
     import does work. Returns False when nothing was needed.
 
-    If you write your own driver script instead of using catan_kit.evaluate, call this at the
+    If you write your own driver script instead of using catan_eval.evaluate, call this at the
     top of it, or run your script with PYTHONHASHSEED=0 yourself.
     """
     if os.environ.get("PYTHONHASHSEED") == "0":
         return False
     if os.environ.get(_REEXEC_FLAG) == "1":
-        print("catan_kit: could not set PYTHONHASHSEED=0; results will not be reproducible.",
+        print("catan_eval: could not set PYTHONHASHSEED=0; results will not be reproducible.",
               file=sys.stderr)
         return False
     env_argv = list(sys.argv)

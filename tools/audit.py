@@ -143,7 +143,7 @@ if __name__ == "__main__":
                 o.write(open(fpath).read())
         summarise(tmp)
         sys.exit()
-    from catan_kit._patch import ensure_hash_seed
+    from catan_eval._patch import ensure_hash_seed
     ensure_hash_seed()
     path, games, procs, seed0, out = sys.argv[1], int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), sys.argv[5]
     R = int(sys.argv[6]) if len(sys.argv) > 6 else 32

@@ -1,10 +1,10 @@
 import os, sys, time, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import catan_kit
+import catan_eval
 from catanatron.game import Game
 from catanatron.models.player import Color
 from catanatron.players.value import ValueFunctionPlayer, base_fn, DEFAULT_WEIGHTS
-from catan_kit.obs import Obs
+from catan_eval.obs import Obs
 random.seed(1)
 ps=[ValueFunctionPlayer(Color.RED), ValueFunctionPlayer(Color.BLUE)]
 g=Game(ps, seed=5)

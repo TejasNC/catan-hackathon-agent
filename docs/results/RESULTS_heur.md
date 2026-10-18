@@ -28,7 +28,7 @@ function already absorbs these effects (e.g. production loss from the robber is 
 
 ## Robustness ideas (CVaR_0.5 over an archetype gauntlet)
 
-New (kept on branch `claude/heur-exp`): `zoo/arch/` (frozen v5 with extreme weights: ows_zealot, road_plower, port_trader, blocker,
+New (archetype bots, not included in this repository): `zoo/arch/` (frozen v5 with extreme weights: ows_zealot, road_plower, port_trader, blocker,
 greedy), `tools/gauntlet.py` (X vs 5 archetypes + v3 + fregime + v5 mirror; reports mean and
 CVaR_0.5 = mean of the worst half), `tools/spsa_cvar.py` (SPSA on J = 0.5·mean + 0.5·CVaR_0.5,
 fregime held out). Variants (params in bot/agent.py, default off):
@@ -37,7 +37,7 @@ r2 rob_aware=0.4 (expected robber on each player's best tile), r3 army_give=0.6 
 the army race when 2+ knights behind), r4 conc_cap=8 (concave per-resource production).
 
 Note: v5's opp_k = 0.74 and knight_hand = 0.09 were tuned by SPSA in **self-play** (θ⁺ vs θ⁻),
-not against F, so they are already mirror-tuned.
+not against VF, so they are already mirror-tuned.
 
 ### Gauntlet (`tools/gauntlet.py X 100 4 2800000`, 100 paired games per opponent, 800 per row)
 

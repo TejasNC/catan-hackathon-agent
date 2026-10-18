@@ -150,11 +150,11 @@ class _SearchAgent(_a.Agent):
 
 
 REG = dict(regime=0.5, reg_fade=0.35, reg_dev=0.25)
-#: Strategy arms. All are within noise of each other against F and in self-play; which one is best
+#: Strategy arms. All are within noise of each other against VF and in self-play; which one is best
 #: depends on the opponent, so the agent learns it online (Thompson sampling, one arm per game).
 ARMS = [
     ("combo", 3, dict(REG)),                                                   # regime B + turn plan
-    ("v5", 0, {}),                                                             # submission #1
+    ("v5", 0, {}),                                                             # v5
     ("block", 3, dict(REG, opp_k=1.0)),                                        # deny the opponent more
     ("race", 3, dict(REG, opp_k=0.55, knight_hand=0.2, army_lead=0.35)),      # race, contest army
 ]
@@ -162,7 +162,7 @@ PRIOR = [(4.0, 3.0), (2.0, 2.0), (2.0, 2.0), (2.0, 2.0)]   # Beta(wins, losses) 
 
 
 class Agent(_SearchAgent):
-    """Submission: opponent-adaptive. One process plays many games against the same opponent, so each
+    """Agent: opponent-adaptive. One process plays many games against the same opponent, so each
     game picks a strategy arm by Thompson sampling on that opponent's past results."""
     MARGIN = 0.05
 

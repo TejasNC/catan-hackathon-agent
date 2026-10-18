@@ -1,6 +1,6 @@
 import os, sys, time, random, collections
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import catan_kit
+import catan_eval
 from catanatron.game import Game
 from catanatron.models.player import Color
 from catanatron.players.value import ValueFunctionPlayer

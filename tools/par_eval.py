@@ -1,6 +1,6 @@
-"""Parallel version of catan_kit.evaluate: splits the board seeds over worker processes.
+"""Parallel version of catan_eval.evaluate: splits the board seeds over worker processes.
 
-    python tools/par_eval.py --a agent/agent.py --b examples/f_agent.py --games 400 --procs 4
+    python tools/par_eval.py --a agent/agent.py --b examples/valuefn_agent.py --games 400 --procs 4
 Same seeds/seat convention as evaluate.py (seed0 + i//2, game index i).
 """
 import argparse
@@ -10,11 +10,11 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from catan_kit._patch import ensure_hash_seed
+from catan_eval._patch import ensure_hash_seed
 
 
 def _work(args, q):
-    from catan_kit import match
+    from catan_eval import match
     a, b, seeds, idx, clock = args
     recs, _ = match.play_chunk(a, b, seeds, idx, clock_a=clock, clock_b=clock)
     q.put(recs)
@@ -23,7 +23,7 @@ def _work(args, q):
 def main():
     ensure_hash_seed()
     import multiprocessing as mp
-    from catan_kit.evaluate import summarise
+    from catan_eval.evaluate import summarise
     p = argparse.ArgumentParser()
     p.add_argument("--a", required=True)
     p.add_argument("--b", required=True)

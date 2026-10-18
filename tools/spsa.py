@@ -1,4 +1,4 @@
-"""SPSA self-play tuning of the bot's value-function weights. F is never used.
+"""SPSA self-play tuning of the bot's value-function weights. The VF benchmark is never used.
 
 Each iteration: draw a random sign vector D, play theta+ = x + cD against theta- = x - cD on
 paired boards (both seats), and step x along D by the score difference. Weights live in log space
@@ -50,7 +50,7 @@ def _game(args):
 
 
 def main():
-    from catan_kit._patch import ensure_hash_seed
+    from catan_eval._patch import ensure_hash_seed
     ensure_hash_seed()
     import importlib.util
     spec = importlib.util.spec_from_file_location("botmod", BOT)

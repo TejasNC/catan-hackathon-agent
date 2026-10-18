@@ -3,7 +3,7 @@
 Code: `experiments/search.py` (all behind class flags, defaults = v5 behaviour); variant wrappers `experiments/s_*.py`.
 h2h = `tools/h2h.py X army/v5/agent.py N` (paired boards, seed0 300000, no clock); CI = ±1.96·SE.
 
-| variant | what | h2h vs v5 | n | CPU/game (dev box) | vs F (600, seed0 123000) |
+| variant | what | h2h vs v5 | n | CPU/game (dev box) | vs VF (600, seed0 123000) |
 |---|---|---|---|---|---|
 | s_k3 | turn-plan: top-3 first actions, greedy to END_TURN, raw end value | 0.460 ± 0.040 | 600 | – | – |
 | s_k3r | s_k3 + opponent-roll expectimax at END_TURN | 0.423 ± 0.048 | 400 | – | – |
@@ -18,7 +18,7 @@ h2h = `tools/h2h.py X army/v5/agent.py N` (paired boards, seed0 300000, no clock
   plans that buy a card get the luck of that one sample (a VP draw adds +1). Scoring dev draws and
   steals in expectation, as `eval_action` already does, brings it back to 0.51–0.52 at every margin.
   The best one (s_k3m) pooled over 1800 games is 0.519 ± 0.023, about 1.6 SE above 0.5. It is under the 2-SE bar
-  and F shows no change (0.785 vs 0.791), so it is **not adopted**. It is the best search candidate if more games are run later.
+  and VF shows no change (0.785 vs 0.791), so it is **not adopted**. It is the best search candidate if more games are run later.
 * **Opponent-roll expectimax hurts (0.42–0.46)** both with and without the correction. The value function
   is fitted on states where the side to move has just finished a turn. Scoring states in the middle of
   the opponent's turn (after their roll, holding the produced cards) seems to add bias that does not

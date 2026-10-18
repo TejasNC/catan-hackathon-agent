@@ -1,10 +1,10 @@
 """Play one agent against one or more opponents on many cores, and log every run.
 
-    python tools/parallel_eval.py --a my_team/agent.py --b examples/f_agent.py --games 1000
-    python tools/parallel_eval.py --a my_team/agent.py --b examples/f_agent.py examples/random_agent.py
+    python tools/parallel_eval.py --a my_agent/agent.py --b examples/valuefn_agent.py --games 1000
+    python tools/parallel_eval.py --a my_agent/agent.py --b examples/valuefn_agent.py examples/random_agent.py
 
-Same boards, dice and seats as catan_kit.evaluate: game i is played on board seed0 + i // 2, with
-seats alternating, under the same clock and limits (through catan_kit.match.play_chunk). Games are
+Same boards, dice and seats as catan_eval.evaluate: game i is played on board seed0 + i // 2, with
+seats alternating, under the same clock and limits (through catan_eval.match.play_chunk). Games are
 split into fixed chunks of CHUNK games, one fresh pair of agent processes per chunk. An agent that
 keeps state across games (an RNG, or anything it learns) therefore plays slightly differently from a
 single evaluate run, which uses one process for every game. Chunks never depend on --workers, so
@@ -14,9 +14,9 @@ Every run appends one row per opponent to experiments/runs.csv, and its per-game
 experiments/records/<run id>.jsonl, so any game can be replayed alone from its board seed and game index.
 
 CPU per game is inflated when the machine is busy, and an agent pushed over its clock plays random
-moves, which lowers its win rate too. The default of 4 workers keeps F within about 1.3x of its
-quiet timing on this laptop (12 workers: 2.3x, with games over the clock). Confirm timings with a
-quiet run (--workers 1) before you submit, and remember our machine is slower per core again.
+moves, which lowers its win rate too. The default of 4 workers keeps VF within about 1.3x of its
+quiet timing on a 12-thread laptop (12 workers: 2.3x, with games over the clock). Confirm timings with
+a quiet run (--workers 1).
 """
 import argparse
 import csv
@@ -32,9 +32,9 @@ from concurrent.futures import ProcessPoolExecutor
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from catan_kit._patch import ensure_hash_seed  # noqa: E402
-from catan_kit import match  # noqa: E402
-from catan_kit.evaluate import summarise  # noqa: E402
+from catan_eval._patch import ensure_hash_seed  # noqa: E402
+from catan_eval import match  # noqa: E402
+from catan_eval.evaluate import summarise  # noqa: E402
 
 RUNS_DIR = os.path.join(ROOT, "experiments")
 CSV_FIELDS = ["run_id", "time", "commit", "tag", "a", "a_sha", "b", "games", "seed0", "win_rate",
@@ -119,7 +119,7 @@ def log(row, records, run_id):
 
 def main(argv=None):
     ensure_hash_seed()          # may restart this process with PYTHONHASHSEED=0
-    p = argparse.ArgumentParser(description="Parallel catan_kit.evaluate, with a run log.")
+    p = argparse.ArgumentParser(description="Parallel catan_eval.evaluate, with a run log.")
     p.add_argument("--a", required=True, help="path to your agent file")
     p.add_argument("--b", required=True, nargs="+", help="one or more opponent agent files")
     p.add_argument("--games", type=int, default=1000, help="games against each opponent")

@@ -1,4 +1,4 @@
-"""Self-play data: (diff features from the mover's seat, did the mover win). F is not involved."""
+"""Self-play data: (diff features from the mover's seat, did the mover win). The VF benchmark is not involved."""
 import os, sys, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import multiprocessing as mp

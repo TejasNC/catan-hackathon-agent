@@ -17,7 +17,7 @@ def _g(args):
     return 1.0 if res else (0.5 if res is None else 0.0)
 
 if __name__ == "__main__":
-    from catan_kit._patch import ensure_hash_seed
+    from catan_eval._patch import ensure_hash_seed
     ensure_hash_seed()
     pa, pb, n = sys.argv[1], sys.argv[2], int(sys.argv[3])
     procs = int(sys.argv[4]) if len(sys.argv) > 4 else 4

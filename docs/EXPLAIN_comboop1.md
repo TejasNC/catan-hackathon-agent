@@ -52,7 +52,7 @@ moves with it: $w_p = 0.055(1-\text{phase}) + 0.0495\,\text{phase}$.
 | | partial: $0.059\,(2 - d_{city} - d_{settle})/2$ | | smooth credit for getting closer to a build |
 | **Dev cards / army** | me: $m_d(0.095\,\text{knights} + 0.18\,\text{other})$ | | a knight is cheap to hold: SPSA cut it from 0.25 to 0.09 so the bot plays them |
 | | opp: per unknown card $m_d(0.56\cdot0.095 + 0.24\cdot0.18) + 0.2$ | | expectation over the pile: 0.2 ≈ P(VP card) |
-| | $m_d\cdot0.157\min(K,4)$ + army-lead term above | | Largest Army is 2 VP that F never contests |
+| | $m_d\cdot0.157\min(K,4)$ + army-lead term above | | Largest Army is 2 VP that VF never contests |
 | **Ports** | 3:1: $0.193(1-\tfrac{\text{phase}}{2})$; 2:1: $0.010\cdot\text{pips}_r$ | | a 2:1 port is only worth what you produce of its resource |
 | **Roads** | $0.040\min(L,10)$ + road-lead term above | | the race for Longest Road (2 VP) |
 
@@ -157,18 +157,18 @@ The search is skipped below 120 ms, and any failure falls back to combo's own dr
    $\Delta\in\{\pm1\}^d$ and plays $\theta^\pm = x\pm0.25\Delta$ against each other on 64 paired games.
    With $s$ = θ⁺'s win rate, the update is
    $x \leftarrow x + a_t(2s-1)\Delta/2$, where $a_t = 0.6/(1+t/100)^{0.602}$.
-   93 iterations gave v5. **F was never an opponent or teacher**; it is only a held-out measuring stick.
+   93 iterations gave v5. **VF was never an opponent or teacher**; it is only a held-out measuring stick.
 3. **Regime B** ($a$ = 0.5, fade 0.35, dev 0.25) was set by hand. An SPSA run with the regime
    switched on landed elsewhere (0.77 / 0.26 / 0.24), and that version was no better (0.503 vs v5).
 
 Results are win rates; for the 95 % interval use $\pm1.96\sqrt{p(1-p)/n}$ (≈ ±0.025 at n = 1000).
 
-| Bot | vs F | head-to-head |
+| Bot | vs VF | head-to-head |
 |---|---|---|
-| v5 (submission #1) | 0.791 (1000 g); leaderboard 0.779, **vs O 0.626** | 0.550 vs v3 |
+| v5 | 0.791 (1000 g); 0.779 when re-measured on another machine | 0.550 vs v3 |
 | combo | 0.793 | 0.524 vs v5 (3000 g) |
 | op1 | 0.786 (1600 g; v5 0.761 on the same games) | 0.543 vs v5 (600 g) |
-| **comboop1** | **0.820** (1000 g; combo 0.787 on the same games); official harness 0.805 (200 g), 0 over clock | 0.523 vs combo (1000 g) |
+| **comboop1** | **0.820** (1000 g; combo 0.787 on the same games); clocked harness on another machine 0.805 (200 g), 0 over clock | 0.523 vs combo (1000 g) |
 
 ## 7. Worked example (hypothetical, real weights)
 
@@ -214,7 +214,7 @@ How to read it:
   Once SPSA has tuned the weights, small structural changes get absorbed.
 - **Opening limits:**
   - Roads are ignored when an opening is scored.
-  - The opponent model is v5's draft, not F's "pips + 4 per resource".
+  - The opponent model is v5's draft, not VF's "pips + 4 per resource".
   - Training data is v5 vs v5 only.
 - **Single sampled world.** Hidden VP-card risk late in the game is not averaged.
 - **The next real gain needs a different model class,** e.g. TD(λ) on after-states.

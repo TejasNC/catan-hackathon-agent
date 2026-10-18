@@ -1,9 +1,8 @@
 # op1: M plus a learned, opponent-aware opening
 
 op1 is this folder: `agent.py`, `op1_opener.py` (draft search), `op1_mbase.py` (M = v5, unchanged)
-and `open_model.json` (the learned weights). It is byte-for-byte the uploaded candidate `op1.zip`,
-with the helper modules renamed so they cannot collide with other army bots in one process. It plays exactly like M (the
-`claude/affectionate-mayer-7m6i1z` bot) after the opening. The difference is how it places its
+and `open_model.json` (the learned weights). It is byte-for-byte the evaluated candidate,
+with the helper modules renamed so they cannot collide with other army bots in one process. It plays exactly like M (`army/v5`) after the opening. The difference is how it places its
 two initial settlements.
 
 ## 1. Why the opening
@@ -103,16 +102,16 @@ The shipped version:
   deadline it plays the best pick found so far, or M's own pick;
 - skips the opening search entirely below 120 ms of clock.
 
-Official harness smoke test (20 games vs F): 169 ms mean CPU per game, 290 ms worst, 0 games over
-the clock, 0 errors. On the team machine, over 1,000 games vs F: 144 ms mean, worst decision 100 ms.
+Clocked harness smoke test (20 games vs VF): 169 ms mean CPU per game, 290 ms worst, 0 games over
+the clock, 0 errors. On an 8-core machine, over 1,000 games vs VF: 144 ms mean, worst decision 100 ms.
 
 ## 5. Known limitations
 
 - **Roads are ignored** when scoring an opening on node sets, so the expansion features are zero at
   decision time. Their weights are small (+0.04, +0.02), and they are zero for both players, so
   they cancel.
-- **The opponent model is M's draft.** Against F, the real picks follow "most pips + 4 per resource".
-  op2 adds online identification: once F is recognised, picks are predicted with F's formula.
+- **The opponent model is M's draft.** Against VF, the real picks follow "most pips + 4 per resource".
+  op2 adds online identification: once VF is recognised, picks are predicted with VF's formula.
 - **The training data is M vs M.** Openings that only work with a different mid-game style are not
   represented.
 - **The gain is the opening only:** about +2.5 to +5 points against every bot tested. Each 600-game
@@ -124,22 +123,24 @@ Paired games (same boards, dice and seats for op1 and for M), clock on:
 
 | Opponent | op1 | M | gain | games | where |
 |---|---|---|---|---|---|
-| F | 0.786 | 0.761 | +2.5 | 1,600 | laptop (600) + team machine (1,000) |
-| M (v5_final) | 0.543 | 0.500 | +4.3 | 600 | team machine |
-| v1 | 0.685 | 0.658 | +2.7 | 600 | team machine |
-| v2 | 0.588 | 0.558 | +3.0 | 600 | team machine |
-| v3 | 0.590 | 0.537 | +5.3 | 600 | team machine |
-| spsa1 | 0.588 | 0.560 | +2.8 | 600 | team machine |
+| VF | 0.786 | 0.761 | +2.5 | 1,600 | laptop (600) + 8-core machine (1,000) |
+| M (v5_final) | 0.543 | 0.500 | +4.3 | 600 | 8-core machine |
+| v1 | 0.685 | 0.658 | +2.7 | 600 | 8-core machine |
+| v2 | 0.588 | 0.558 | +3.0 | 600 | 8-core machine |
+| v3 | 0.590 | 0.537 | +5.3 | 600 | 8-core machine |
+| spsa1 | 0.588 | 0.560 | +2.8 | 600 | 8-core machine |
 
 These were run with `tools/h2h.py`, which plays in-process with the harness's clock rule emulated.
-The confirmation run with the official `catan_kit.evaluate` on the team machine is still to do.
+
 
 ## 7. Reproduce
+
+The data-generation and fitting scripts (`gen_open.py`, `fit_open.py`) are not included in this
+repository; the fitted model they produced is `open_model.json`. The commands, for reference:
 
 ```
 python tools/gen_open.py data/open1.npz --games 4000 --workers 4
 python tools/gen_open.py data/open2.npz --games 12000 --workers 8 --seed0 9000000
 python tools/fit_open.py data/open1.npz data/open2.npz --out cands/open_model.json
-python tools/h2h.py cands/op1.py examples/f_agent.py --games 1000 --workers 8 --seed0 990000
-python tools/package.py build_op1 --games 20 --out submissions/op1.zip
+python tools/h2h.py cands/op1.py examples/valuefn_agent.py --games 1000 --workers 8 --seed0 990000
 ```

@@ -1,4 +1,4 @@
-"""The agent's side of a match: one OS process per submission, talking to the harness over a pipe.
+"""The agent's side of a match: one OS process per agent, talking to the harness over a pipe.
 
 WHY A SEPARATE PROCESS. In its own process the agent owns nothing the harness depends on. It
 receives a COPY of the game in which the hidden information has been resampled, it has its own
@@ -23,7 +23,7 @@ import traceback
 def _load_agent(path):
     path = os.path.abspath(path)
     sys.path.insert(0, os.path.dirname(path))     # let the agent import its own helper modules
-    spec = importlib.util.spec_from_file_location("submitted_agent", path)
+    spec = importlib.util.spec_from_file_location("loaded_agent", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     if not hasattr(module, "Agent"):
@@ -48,7 +48,7 @@ def _as_index(x):
     return int(operator.index(x))      # numpy integers pass; floats and strings raise TypeError
 
 
-def serve(conn, agent_path, memory_bytes=None, uid=None, scratch=None):
+def serve(conn, agent_path, memory_bytes=None):
     """Run inside the child. Protocol:
         harness -> agent   ("go",)                          once, before the agent loads
         agent   -> harness ["ready", 0, load_seconds]  or  ["init_error", 0, traceback_text]
@@ -59,43 +59,25 @@ def serve(conn, agent_path, memory_bytes=None, uid=None, scratch=None):
     seq numbers the decisions, so the harness can tell a late answer to an earlier decision from
     the answer to the current one.
     """
-    if uid is not None and os.getuid() == 0:
-        # On the evaluation machine: give up root before any agent code exists in this process.
-        os.setgroups([])
-        os.setgid(uid)
-        os.setuid(uid)
-        # Output goes nowhere on our machine: errors come back in the replies, and an agent that
-        # printed without end must not fill a disk. On your own machine you keep your prints.
-        devnull = os.open(os.devnull, os.O_WRONLY)
-        os.dup2(devnull, 1)
-        os.dup2(devnull, 2)
-    if scratch is not None:
-        # The private directory the harness made for this process: libraries that cache under ~ or
-        # write temporary files use it, never root's home or a shared /tmp.
-        os.environ["HOME"] = os.environ["TMPDIR"] = scratch
-    # Run from the agent's own directory, here and on our machine alike, so a relative path to a
-    # weights file behaves the same in both places.
+    # Run from the agent's own directory, so a relative path to a weights file always resolves.
     agent_path = os.path.abspath(agent_path)           # before the chdir, against the caller's cwd
     os.chdir(os.path.dirname(agent_path))
-    sandboxed = os.environ.get("CATAN_SANDBOX") == "1"
-    if memory_bytes and sys.platform.startswith("linux") and not sandboxed:
+    if memory_bytes and sys.platform.startswith("linux"):
         # Enforced on Linux. macOS accepts the call and ignores it, so local runs are unbounded.
-        # Under the sandbox the cgroup's memory.max does this instead. `resource` exists on Unix
-        # only, so it is imported here and never on Windows.
+        # `resource` exists on Unix only, so it is imported here and never on Windows.
         import resource
         resource.setrlimit(resource.RLIMIT_AS, (memory_bytes, memory_bytes))
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
 
-    # Wait until the harness has finished setting this process up (on the evaluation machine: moved
-    # it into its cgroup), so that everything the agent does happens inside it.
+    # Wait until the harness has finished setting this process up.
     try:
         conn.recv()
     except EOFError:
         return
 
-    import catan_kit  # noqa: F401  applies the deterministic trade-order fix in this process too
-    from catan_kit.obs import Obs
+    import catan_eval  # noqa: F401  applies the deterministic trade-order fix in this process too
+    from catan_eval.obs import Obs
 
     # The engine draws from Python's global `random` when a move has a random outcome, for example
     # the card a robber steals. Searching agents execute such moves on their copies, so without a

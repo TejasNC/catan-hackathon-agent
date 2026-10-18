@@ -1,25 +1,25 @@
-# How we built our Catan bot: the story of one day
+# How we built our Catan bot
 
-*Team bakarwadi · 17 October 2026 · 2-player Catan vs F, O and other teams*
+*A 2-player Catan agent on catanatron, built in one intense day of experiments.*
 
 ---
 
 ## Prologue: the opponent
 
-The task: beat **F**, catanatron's `ValueFunctionPlayer`, in 2-player Catan, on one CPU core with
+The goal: beat **VF**, catanatron's `ValueFunctionPlayer`, in 2-player Catan, on one CPU core with
 about **1 second of thinking per game**.
 
-Before writing a line of bot code, we watched F play itself and read its source.
+Before writing a line of bot code, we watched VF play itself and read its source.
 
-- F ranks moves by a weighted sum whose weights are *tiers*: victory points $3\cdot10^{14}$ ≫
+- VF ranks moves by a weighted sum whose weights are *tiers*: victory points $3\cdot10^{14}$ ≫
   production $10^8$ ≫ everything else. In practice it is a greedy, one-move-ahead bot.
 - It counts only **public** victory points, so a VP card is worth ~nothing to it, and a played knight
   is worth $10.1$.
-- Result, F vs F over 60 games: Largest Army in **3 %** of wins, 2.3 dev cards bought per game,
+- Result, VF vs VF over 60 games: Largest Army in **3 %** of wins, 2.3 dev cards bought per game,
   **17 cards** thrown away to sevens per game.
 
 We also checked the literature. Plain MCTS was weak in Catan, RL-from-scratch agents lost to random
-players, and catanatron's AlphaBeta beats F only modestly. Then we measured the clock: one random
+players, and catanatron's AlphaBeta beats VF only modestly. Then we measured the clock: one random
 playout costs 11 ms, the whole per-decision budget. **Deep search was off the table.** Our bet: a
 better *evaluation*, not a deeper search.
 
@@ -39,7 +39,7 @@ Two decision tricks came with it:
   sample;
 - trades get a second step: a trade is worth the best build it enables this turn.
 
-**v1: 63.5 % vs F.** A 13-point jump from changing what the bot cares about.
+**v1: 63.5 % vs VF.** A 13-point jump from changing what the bot cares about.
 
 ## Act II: the knight that was never played (64 % → 68 %)
 
@@ -52,7 +52,7 @@ free roads.
 
 ## Act III: the snake draft (68 % → 73 %)
 
-Our opening spots were as rich as F's (22.5 vs 22.0 pips), so the spots weren't the problem. The order
+Our opening spots were as rich as VF's (22.5 vs 22.0 pips), so the spots weren't the problem. The order
 was. In 2-player Catan the picks go P1, P2, P2, P1. We scored each pick as *my best pair minus the
 opponent's best pair* after they respond.
 
@@ -73,19 +73,18 @@ end-of-turn positions still scored 19 %.)
 ## Act V: tuning by playing ourselves (73 % → 79 %)
 
 We borrowed a chess-engine trick, **SPSA**. Perturb all the weights at once, play $\theta^+$ against
-$\theta^-$, and step toward the winner. F was never used. In about 12 minutes on 4 cores the bot
+$\theta^-$, and step toward the winner. VF was never used. In about 12 minutes on 4 cores the bot
 learned to play its knights instead of hoarding them, to value wheat and ore more, and to race to
 10 instead of blocking.
 
-**v5: 79.1 % over 1000 held-out games.** Uploaded as submission #1. The leaderboard agreed:
-**0.779 vs F, 0.626 vs O**, 4th place overall, 0.007 behind 1st.
+**v5: 79.1 % over 1000 held-out games.** An independent re-measurement on another machine agreed:
+**0.779 vs VF**.
 
 ---
 
 ## Act VI: the plateau
 
-With the leaderboard showing O as the harder opponent, we went wide. Remote sessions ran in parallel,
-each on its own machine:
+Next we went wide, running experiments in parallel on several machines:
 
 | Idea | Head-to-head vs v5 |
 |---|---|
@@ -99,22 +98,23 @@ each on its own machine:
 Almost everything landed in the noise. A self-tuned evaluation absorbs small structural changes. Two
 small gains did stack, though: regime + turn planning, **52.4 % over 3000 games**, became `combo`.
 
-## Act VII: the teammates' opening
+## Act VII: a learned opening
 
-Meanwhile our teammates attacked the one part SPSA couldn't reach. They learned **P(win | the four
+Meanwhile we attacked the one part SPSA couldn't reach. They learned **P(win | the four
 opening settlements)** from 16,000 games (AUC 0.74) and built a draft search around it.
 **`op1` beat v5 54.3 %**, the biggest gain since SPSA. Merged with combo it became **`comboop1`:
-82.0 % vs F**.
+82.0 % vs VF**.
 
 ## Act VIII: the bandit that couldn't remember
 
-The group stage plays 1000 games against each team. An opponent-adaptive bot seemed like the next
-step: a Thompson-sampling bandit over four play styles that learns which beats each opponent. It
-worked: 80.5 % vs F, 53 % vs v5.
+An opponent-adaptive bot seemed like the next step: a Thompson-sampling bandit over four play
+styles that learns, across the games of one process, which style beats the current opponent. It
+worked: 80.5 % vs VF, 53 % vs v5.
 
-Then we learned the agent's memory does not persist across those 1000 games. The idea died, but the
-statistics behind it went into the report: even with memory, detecting a 5-point edge takes about
-**770 games per style**.
+But it only helps when one process plays many games against the same opponent, and the statistics
+are unforgiving: detecting a 5-point edge between two styles takes about **770 games per style**.
+In short or freshly restarted matches the bandit has nothing to learn from, so it stayed an experiment
+(`army/adapt`).
 
 ## Act IX: the audit and the red team
 
@@ -126,13 +126,13 @@ from every candidate move, many times on the same dice. Was the bot's choice act
   first can only help.
 
 A red-team session attacked `comboop1` with fuzzing and adversarial bots. It found no crashes and no
-exploits, but 2 of 500 very long games ran out of clock. Both fixes went into **`bot_cop1fix`**.
+exploits, but 2 of 500 very long games ran out of clock. Both fixes went into **`comboop1_fix`**.
 
 ---
 
-## Epilogue: what the day taught us
+## Epilogue: what we learned
 
-1. **Understand the opponent before optimising.** Our biggest edge came from reading F's code: the VP
+1. **Understand the opponent before optimising.** Our biggest edge came from reading VF's code: the VP
    cards and Largest Army it ignores.
 2. **Under a tight clock, evaluation beats depth.** About 26 of our ~32 points came from what the bot
    values, not how far it searches.
@@ -141,13 +141,13 @@ exploits, but 2 of 500 very long games ran out of clock. Both fixes went into **
    opening, and bug fixes found by auditing.
 5. **Small samples lie.** "Wins" at 40 games and a "flaw" at 35 decisions vanished at a few thousand.
 
-| Version | What changed | vs F |
+| Version | What changed | vs VF |
 |---|---|---|
-| F | — | 50 % |
+| VF | — | 50 % |
 | v1 | value function in VP units | 63.5 % |
 | v2 | + knight follow-up | 68.3 % |
 | v3 | + draft opening | 72.6 % |
-| v5 | + self-play tuned weights | 79.1 % (leaderboard 0.779; O 0.626) |
+| v5 | + self-play tuned weights | 79.1 % |
 | combo | + regime + turn planning | 79.3 % (h2h +2.4 vs v5) |
-| comboop1 | + learned opening (teammates) | 82.0 % |
-| bot_cop1fix | + audit & red-team fixes | final candidate |
+| comboop1 | + learned opening | 82.0 % |
+| comboop1_fix | + audit & red-team fixes | 77.0 % (400 g, fresh seeds; within noise) |

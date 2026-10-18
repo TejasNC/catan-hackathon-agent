@@ -1,4 +1,4 @@
-"""catanatron AlphaBetaPlayer (depth 2, pruning, F's value fn) behind the Agent interface. Zoo only."""
+"""catanatron AlphaBetaPlayer (depth 2, pruning, VF value fn) behind the Agent interface. Zoo only."""
 import random
 from catanatron.players.minimax import AlphaBetaPlayer
 

@@ -1,34 +1,32 @@
-# Bot army: every bot we built or used
+# Bot army: every bot we built or benchmarked
 
-The final submission is **`comboop1`** (leaderboard: 0.813 vs F, 0.658 vs O). Zip any folder's
-contents (with `agent.py` at the top) to submit it.
+Every folder is a self-contained agent (`agent.py`, plus uniquely named helper modules where needed)
+that runs in the `catan_eval` harness and in `tools/h2h.py`. The strongest is **`comboop1`**.
 
-Every folder is a self-contained agent (`agent.py`, plus a uniquely named helper module where needed),
-loadable by the kit harness and by `tools/h2h.py`. **Use these as the opponent pool when evaluating a
-new candidate:**
+Use them as the opponent pool when evaluating a new candidate:
 
 ```
 python tools/gauntlet.py path/to/candidate/agent.py 400        # candidate vs every bot below
 python tools/gauntlet.py cand.py 400 4 4000000 --skip ab2       # ab2 is slow (unclocked alpha-beta)
-python tools/par_eval.py --a cand.py --b army/f/agent.py --games 1000 --seed0 123000   # clocked F number
+python tools/par_eval.py --a cand.py --b army/valuefn/agent.py --games 1000 --seed0 123000   # clocked, vs VF
 ```
 
-F is a measuring stick only: never tune against it.
+VF is a benchmark only: never tune against it.
 
 | Bot | What it is | Known strength |
 |---|---|---|
-| `f` | catanatron `ValueFunctionPlayer` (the hackathon's F) | reference |
-| `ab2` | catanatron AlphaBeta depth 2 + pruning, F's value fn (unclocked; slow) | 0.575 vs F (40 g) |
-| `fregime` | F + the team's regime correction (implemented from the brief) | 0.570 vs F (400 g) |
-| `v1` | first value-function agent (hand weights, trade lookahead) | 0.635 vs F (200 g) |
-| `v2` | v1 + knight / road-building follow-up step | 0.683 vs F (400 g) |
-| `v3` | v2 + snake-draft opening | 0.726 vs F (1000 g) |
-| `v5` | v3 + SPSA self-play weights — **submission #1** | 0.791 vs F (1000 g); leaderboard F 0.779, O 0.626 |
-| `regime_b` | v5 + regime B weights | 0.517 vs v5 (2400 g), 0.773 vs F |
-| `turnplan` | v5 + within-turn turn-plan lookahead (top-3, margin 0.05) | 0.519 vs v5 (1800 g), 0.785 vs F |
-| `combo` | v5 + regime B + turn-plan (`army/combo/`) | 0.524 vs v5 (3000 g), 0.793 vs F |
-| `pasted` | team variant: v5 + regime 0.75 + robber-block risk, opponent profiling, monopoly/knight bonuses | 0.518 vs v5, 0.510 vs combo, 0.760 vs fregime, 0.792 vs F (600 g each) |
-| `op1` | v5 + learned opening: P(win \| 4 settlements) logistic model fit on 16k v5-vs-v5 games with perturbed openings (AUC 0.74), draft search predicting the opponent's picks with v5's draft, CPU-deadline guarded (see `army/op1/README.md`) | 0.543 vs v5, 0.588 vs v2, 0.590 vs v3, 0.685 vs v1 (600 g each, paired); 0.786 vs F (1,600 g pooled; v5 0.761 on the same games) |
-| `adapt` | opponent-adaptive: Thompson-sampling bandit over 4 strategy arms (combo, v5, block, race), one arm per game, learns per opponent across the games of one process (`army/adapt/`) | 0.805 vs F (400 g, clocked), 0.530 vs v5 (400 g, clocked) |
-| `comboop1` | combo (v5 + regime B + turn-plan) with op1's learned opening draft; CPU-deadline guarded | 0.523 vs combo (1000 g), 0.820 vs F (1000 g; combo 0.787 on the same games); official evaluate on the team machine: 0.805 vs F (200 g), 0 over clock, worst 920 ms |
-| `comboop1_fix` | comboop1 + audit fix (never play Monopoly before rolling) + red-team clock fix (turn-plan only with >= 0.9 s left) (rollout audit: pre-roll Monopoly cost +7.3 ± 5.7 points) (`army/comboop1_fix/`) | 0.5025 ± 0.035 vs comboop1 (800 g, no harm; fix fires rarely); 0 errors / 0 over budget in the official harness |
+| `valuefn` | catanatron `ValueFunctionPlayer` (VF) | reference |
+| `ab2` | catanatron AlphaBeta depth 2 + pruning, VF's value fn (unclocked; slow) | 0.575 vs VF (40 g) |
+| `fregime` | VF + a regime correction (expand → build resource weights) | 0.570 vs VF (400 g) |
+| `v1` | first value-function agent (hand weights, trade lookahead) | 0.635 vs VF (200 g) |
+| `v2` | v1 + knight / road-building follow-up step | 0.683 vs VF (400 g) |
+| `v3` | v2 + snake-draft opening | 0.726 vs VF (1000 g) |
+| `v5` | v3 + SPSA self-play weights | 0.791 vs VF (1000 g) |
+| `regime_b` | v5 + regime B weights | 0.517 vs v5 (2400 g), 0.773 vs VF |
+| `turnplan` | v5 + within-turn turn-plan lookahead (top-3, margin 0.05) | 0.519 vs v5 (1800 g), 0.785 vs VF |
+| `combo` | v5 + regime B + turn-plan | 0.524 vs v5 (3000 g), 0.793 vs VF |
+| `profiler` | v5 + regime 0.75 + robber-block risk, in-process opponent profiling, monopoly/knight bonuses | 0.518 vs v5, 0.510 vs combo, 0.760 vs fregime, 0.792 vs VF (600 g each) |
+| `op1` | v5 + learned opening: P(win \| 4 settlements) logistic model fit on 16k v5-vs-v5 games with perturbed openings (AUC 0.74), draft search predicting the opponent's picks, CPU-deadline guarded (see `army/op1/README.md`) | 0.543 vs v5, 0.588 vs v2, 0.590 vs v3, 0.685 vs v1 (600 g each, paired); 0.786 vs VF (1,600 g pooled; v5 0.761 on the same games) |
+| `adapt` | opponent-adaptive: Thompson-sampling bandit over 4 strategy arms (combo, v5, block, race), one arm per game, learns per opponent across the games of one process | 0.805 vs VF (400 g, clocked), 0.530 vs v5 (400 g, clocked) |
+| **`comboop1`** | combo (v5 + regime B + turn-plan) with op1's learned opening; CPU-deadline guarded | 0.523 vs combo (1000 g), **0.820 vs VF** (1000 g; combo 0.787 on the same games), 0 games over the clock |
+| `comboop1_fix` | comboop1 + decision-audit fix (never play Monopoly before rolling: rollout regret +7.3 ± 5.7 points) + stricter clock guard (turn-plan only with ≥ 0.9 s left) | 0.5025 ± 0.035 vs comboop1 (800 g; the fix fires rarely), 0.770 vs VF (400 g, fresh seeds), 0 errors / 0 over the clock |

@@ -1,4 +1,4 @@
-"""The simplest legal agent. It scores about 0.000 against F. Start here."""
+"""The simplest legal agent: a uniformly random legal move."""
 import random
 
 

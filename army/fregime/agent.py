@@ -1,4 +1,4 @@
-"""Benchmark opponent: F's value + the team's regime correction (implemented from the brief, v2 defaults).
+"""Benchmark opponent: VF value + a regime correction (expand -> build resource weights, v2 defaults).
 Zoo only -- never used for training."""
 import random
 from catanatron.players.value import DEFAULT_WEIGHTS, get_value_fn

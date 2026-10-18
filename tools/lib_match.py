@@ -1,15 +1,15 @@
 """Quick in-process matches between catanatron Player objects (perfect info, no clock).
-usage: python tools/lib_match.py AB2 F 40"""
+usage: python tools/lib_match.py AB2 VF 40"""
 import os, sys, time, random
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import catan_kit
+import catan_eval
 from catanatron.game import Game
 from catanatron.models.player import Color
 from catanatron.players.value import ValueFunctionPlayer
 from catanatron.players.minimax import AlphaBetaPlayer, SameTurnAlphaBetaPlayer
 
 def make(name, color):
-    if name == "F": return ValueFunctionPlayer(color)
+    if name == "VF": return ValueFunctionPlayer(color)
     if name.startswith("ABP"): return AlphaBetaPlayer(color, depth=int(name[3:]), prunning=True)
     if name.startswith("AB"): return AlphaBetaPlayer(color, depth=int(name[2:]))
     if name.startswith("ST"): return SameTurnAlphaBetaPlayer(color, depth=int(name[2:]))

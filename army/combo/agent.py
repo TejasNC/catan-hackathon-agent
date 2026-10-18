@@ -148,7 +148,7 @@ class _SearchAgent(_a.Agent):
 
 
 class Agent(_SearchAgent):
-    """Submission: v5 value function + regime B + turn-plan lookahead (top-3, margin 0.05)."""
+    """Agent: v5 value function + regime B + turn-plan lookahead (top-3, margin 0.05)."""
     TURN_K = 3
     MARGIN = 0.05
 

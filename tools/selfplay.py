@@ -2,11 +2,11 @@
 Used for self-play statistics, tuning and data generation."""
 import os, sys, random, importlib.util, collections
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import catan_kit
+import catan_eval
 from catanatron.game import Game
 from catanatron.models.player import Color, Player
 from catanatron.models.actions import generate_playable_actions
-from catan_kit.obs import Obs
+from catan_eval.obs import Obs
 
 
 def load_agent_class(path):

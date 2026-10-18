@@ -3,7 +3,7 @@
     python tools/gauntlet.py path/to/agent.py [games_per_bot=400] [procs=4] [seed0=4000000] [--skip ab2,...]
 
 Reports the candidate's win rate (± 95% CI) against each bot and the mean over bots.
-For the clocked F number use tools/par_eval.py (official harness).
+For the clocked number against VF use tools/par_eval.py.
 """
 import os, sys, subprocess, re
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

@@ -1,15 +1,19 @@
 # Third-party notice
 
-This kit depends on **catanatron** by Bryan Collazo, released under GPL-3.0-or-later.
+This project builds on **catanatron** by Bryan Collazo, released under GPL-3.0-or-later.
 
 * Upstream: <https://github.com/bcollazo/catanatron>
-* We do **not** redistribute catanatron. `requirements.txt` installs it from its GitHub
+* catanatron is **not** redistributed here. `requirements.txt` installs it from its GitHub
   repository, pinned to one commit.
+* `examples/valuefn_agent.py` and `army/valuefn/` wrap catanatron's `ValueFunctionPlayer`, and
+  `army/ab2/` wraps its `AlphaBetaPlayer`, unchanged.
 
-`catan_kit/_patch.py` changes one catanatron function at run time, in memory only. It sorts the
-list of bank and port trade offers so that the order depends on the contents and not on memory
-layout. Nothing on disk is modified. The reason, and the measurements behind it, are in that
-file's docstring.
+The match harness in `catan_eval/` (clocked agent processes, hidden-information masking, the
+determinism patch) and `examples/random_agent.py` were adapted from an open-source GPL-3.0 starter
+kit for catanatron agents (<https://github.com/pbhar-hyde/catan-agent-hackathon>), and modified.
 
-Because this kit is built on a GPL-3.0 work, the kit is released under the same license. See
-`LICENSE`.
+`catan_eval/_patch.py` changes one catanatron function at run time, in memory only. It sorts the
+list of bank and port trade offers so that their order depends on their contents and not on memory
+layout. Nothing on disk is modified; the reason is in that file's docstring.
+
+This project is released under GPL-3.0-or-later. See `LICENSE`.

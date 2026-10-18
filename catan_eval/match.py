@@ -8,15 +8,13 @@ import json
 import multiprocessing as mp
 import os
 import random
-import shutil
-import tempfile
 import time
 
 import psutil
 
-import catan_kit  # noqa: F401  deterministic trade-order fix, in the harness process
-from catan_kit import host, sandbox
-from catan_kit.obs import masked_copy
+import catan_eval  # noqa: F401  deterministic trade-order fix, in the harness process
+from catan_eval import host
+from catan_eval.obs import masked_copy
 from catanatron.game import Game
 from catanatron.models.player import Color, RandomPlayer
 
@@ -29,8 +27,8 @@ from catanatron.models.player import Color, RandomPlayer
 #: to the agent. Games run from about 20 to 160 decisions per player, so a flat cap would cut off an
 #: agent in exactly the long, close games. The increment gives a long game proportionally more time,
 #: and the base pays for the opening placement, which has the most candidates and comes first. At
-#: F's mean of about 56 decisions a game the allowance is about 1 s. The ceiling, reached at 96
-#: decisions, bounds what one game can cost the evaluation machine: at most 2 x CPU_MAX_S of agent
+#: VF's mean of about 56 decisions a game the allowance is about 1 s. The ceiling, reached at 96
+#: decisions, bounds what one game can cost: at most 2 x CPU_MAX_S of agent
 #: CPU per game. Once the allowance is spent, the harness plays uniformly random legal moves for the
 #: rest of that game.
 CPU_BASE_S = 0.300
@@ -55,8 +53,8 @@ MEMORY_BYTES = 2 * 1024 ** 3
 MAX_REPLY_BYTES = 16 * 1024
 
 COLORS = [Color.RED, Color.BLUE]
-#: Local default. The event uses a private key, so dice cannot be reproduced from a board.
-DEFAULT_KEY = b"catan-kit-public-default-key"
+#: Key for the dice stream. Change it to get dice that cannot be reproduced from the board seed.
+DEFAULT_KEY = b"catan-eval-default-key"
 
 
 def dice_seed(board_seed, pair_index, key=DEFAULT_KEY):
@@ -73,38 +71,24 @@ def dice_seed(board_seed, pair_index, key=DEFAULT_KEY):
 
 
 class AgentProcess:
-    """One submission running in its own OS process."""
+    """One agent running in its own OS process."""
 
-    def __init__(self, path, memory_bytes=MEMORY_BYTES, uid=None):
-        self.path, self.memory_bytes, self.uid = path, memory_bytes, uid
+    def __init__(self, path, memory_bytes=MEMORY_BYTES):
+        self.path, self.memory_bytes = path, memory_bytes
         self.init_s = None
-        self.cg = None
-        self.scratch = None
         self.busy = False          # still working on a decision the harness stopped waiting for
         self.seq = 0               # numbers every decision this process is asked, across games
         self.start()
 
     def start(self):
-        if self.uid is not None and hasattr(os, "geteuid") and os.geteuid() == 0:
-            # On the evaluation machine: a fresh private directory, made here as root and given to
-            # the agent's user, becomes its HOME and TMPDIR. Shared directories such as /tmp are not
-            # writable by agents there, so two agents cannot pass messages through files, and
-            # nothing an agent writes outlives its process. CATAN_SCRATCH_ROOT puts it on a memory
-            # filesystem, where what it writes counts against its memory limit, not our disk.
-            self.scratch = tempfile.mkdtemp(prefix=f"catan-{self.uid}-",
-                                            dir=os.environ.get("CATAN_SCRATCH_ROOT"))
-            os.chown(self.scratch, self.uid, self.uid)
         ctx = mp.get_context("spawn")
         self.conn, child = ctx.Pipe()
         self.proc = ctx.Process(target=host.serve,
-                                args=(child, self.path, self.memory_bytes, self.uid, self.scratch),
+                                args=(child, self.path, self.memory_bytes),
                                 daemon=True)
         self.proc.start()
         child.close()
         self.ps = psutil.Process(self.proc.pid)
-        if sandbox.ENABLED:
-            self.cg = sandbox.Cgroup(self.memory_bytes)
-            self.cg.add(self.proc.pid)
         try:
             self.conn.send(("go",))
         except (BrokenPipeError, OSError):
@@ -129,16 +113,10 @@ class AgentProcess:
         """CPU of the agent, user plus system, as the operating system reports it.
 
         Read from the harness, so nothing the agent does inside its own process can falsify it.
-        Under the sandbox: the cgroup's total, which includes every thread and process the agent
-        started. Otherwise: the agent process and its threads, plus children it has waited for, and
+        The agent process and its threads, plus children it has waited for, and
         with full=True also live child processes. Finding those scans every process on the machine,
         so it runs at the start and end of each game, not at every decision.
         """
-        if self.cg is not None:
-            try:
-                return self.cg.cpu()
-            except OSError:
-                return float("inf")
         try:
             t = self.ps.cpu_times()
             total = t.user + t.system + t.children_user + t.children_system
@@ -211,21 +189,14 @@ class AgentProcess:
         self.restart()
 
     def kill(self):
-        if self.cg is not None:
-            self.cg.kill()
-            self.cg = None
-        else:
-            try:
-                for c in self.ps.children(recursive=True):
-                    c.kill()
-            except psutil.Error:
-                pass
+        try:
+            for c in self.ps.children(recursive=True):
+                c.kill()
+        except psutil.Error:
+            pass
         if self.proc.is_alive():
             self.proc.kill()
         self.proc.join(timeout=5)
-        if self.scratch is not None:
-            shutil.rmtree(self.scratch, ignore_errors=True)
-            self.scratch = None
 
     def restart(self):
         self.kill()
@@ -245,8 +216,8 @@ class Seat(RandomPlayer):
     def __init__(self, color, agent, clocked=True):
         super().__init__(color)
         self.agent = agent
-        #: False runs a seat without the CPU and wall limits, for testing. Every scored game clocks
-        #: both seats, the anchors included.
+        #: False runs a seat without the CPU and wall limits, for testing. Normal runs clock
+        #: both seats.
         self.clocked = clocked
 
     def begin_game(self, seed):
@@ -353,7 +324,7 @@ def play_game(seat_a, seat_b, board_seed, game_index, key=DEFAULT_KEY, vps=10):
 
 
 def play_chunk(path_a, path_b, board_seeds, game_indices, key=DEFAULT_KEY, vps=10,
-               clock_a=True, clock_b=True, uid_a=None, uid_b=None):
+               clock_a=True, clock_b=True):
     """Play a list of games between two agent files and return one record per game.
 
     game_indices[k] is played on board_seeds[k]. Game indices fix the seats (even: A first) and,
@@ -362,9 +333,8 @@ def play_chunk(path_a, path_b, board_seeds, game_indices, key=DEFAULT_KEY, vps=1
     Both agents load once and play every game in the list. If an agent dies, it is restarted for
     the next game and the failure is in that game's record.
     """
-    sandbox.pin_self()
-    a = AgentProcess(path_a, uid=uid_a)
-    b = AgentProcess(path_b, uid=uid_b)
+    a = AgentProcess(path_a)
+    b = AgentProcess(path_b)
     seat_a = Seat(COLORS[0], a, clocked=clock_a)
     seat_b = Seat(COLORS[1], b, clocked=clock_b)
     out = []

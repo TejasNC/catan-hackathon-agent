@@ -23,7 +23,7 @@ NEIGH = {n: tuple(STATIC_GRAPH.neighbors(n)) for n in STATIC_GRAPH.nodes}
 AT = ActionType
 
 DEFAULT = dict(
-    # SPSA self-play tuned (93 iterations x 64 games, theta+ vs theta-; F never used).
+    # SPSA self-play tuned (93 iterations x 64 games, theta+ vs theta-; the VF benchmark never used).
     # Hand-set starting values are kept in docs/INSIGHTS.md.
     prod=0.0550,
     prod_late=0.0495,

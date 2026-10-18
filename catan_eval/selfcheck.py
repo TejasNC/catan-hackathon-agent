@@ -1,6 +1,6 @@
-"""Check that the kit is installed correctly. Run this first.
+"""Check that the environment is installed correctly. Run this first.
 
-    python -m catan_kit.selfcheck
+    python -m catan_eval.selfcheck
 
 If a check fails, fix it before you write any agent code: a broken environment produces
 plausible numbers, not error messages.
@@ -10,7 +10,7 @@ import os
 import random
 import sys
 
-#: The interpreter we score on.
+#: The interpreter all reference numbers were measured on.
 REFERENCE_PYTHON = (3, 11)
 
 FAILURES = []
@@ -25,22 +25,21 @@ def check(name, condition, detail=""):
 
 
 def main():
-    from catan_kit._patch import ensure_hash_seed
+    from catan_eval._patch import ensure_hash_seed
     ensure_hash_seed()          # may restart this process
 
-    print("catan_kit self-check\n")
+    print("catan_eval self-check\n")
 
     print("environment")
     # catanatron 3.3.0, numpy, scipy and scikit-learn all require Python 3.11 or newer.
     check("python >= 3.11", sys.version_info >= (3, 11), f"found {sys.version.split()[0]}")
-    # A newer interpreter is not a failure. We score every submission on our own machine, so it
-    # changes your local numbers and not your rank. Measured on an older build: the same 60-game
-    # run gave 3901 agent decisions on 3.11 and 3847 on 3.9, with every dependency pinned and
-    # PYTHONHASHSEED=0. Using 3.11 is the only way to match us exactly.
+    # A newer interpreter is not a failure, but games replay differently across versions: the same
+    # 60-game run gave 3901 agent decisions on 3.11 and 3847 on 3.9, with every dependency pinned
+    # and PYTHONHASHSEED=0. Use 3.11 to reproduce the reference numbers exactly.
     if sys.version_info[:2] != REFERENCE_PYTHON:
-        print(f"  [note] we score on Python {REFERENCE_PYTHON[0]}.{REFERENCE_PYTHON[1]}. "
-              f"You are on {sys.version_info[0]}.{sys.version_info[1]}, so your local numbers "
-              f"will differ slightly from the leaderboard.")
+        print(f"  [note] reference numbers use Python {REFERENCE_PYTHON[0]}.{REFERENCE_PYTHON[1]}. "
+              f"You are on {sys.version_info[0]}.{sys.version_info[1]}, so games will not replay "
+              f"exactly.")
     try:
         version = md.version("catanatron")
     except Exception:
@@ -52,8 +51,8 @@ def main():
         nx = "not installed"
     check("networkx == 3.6.1", nx == "3.6.1", f"found {nx}")
 
-    import catan_kit
-    from catan_kit import _patch
+    import catan_eval
+    from catan_eval import _patch
     check("determinism patch applied", _patch.is_applied())
     check("PYTHONHASHSEED == 0", os.environ.get("PYTHONHASHSEED") == "0",
           f"found {os.environ.get('PYTHONHASHSEED')!r}")
@@ -88,20 +87,20 @@ def main():
           f"got {prints[0]}, reference ('Color.RED', 111)")
 
     print("\nexample agents")
-    from catan_kit.evaluate import run
+    from catan_eval.evaluate import run
     import pathlib
     here = pathlib.Path(__file__).resolve().parent.parent / "examples"
-    rnd, f = str(here / "random_agent.py"), str(here / "f_agent.py")
+    rnd, f = str(here / "random_agent.py"), str(here / "valuefn_agent.py")
 
     r = run(f, rnd, games=20, quiet=True)
-    check("f_agent beats random_agent", r["win_rate"] >= 0.9,
+    check("valuefn_agent beats random_agent", r["win_rate"] >= 0.9,
           f"win rate {r['win_rate']:.2f} over 20 games")
-    check("f_agent raises no errors", r["errors"] == 0, f"{r['errors']} errors")
-    check("f_agent stays inside the CPU clock", r["games_over_budget"] == 0,
+    check("valuefn_agent raises no errors", r["errors"] == 0, f"{r['errors']} errors")
+    check("valuefn_agent stays inside the CPU clock", r["games_over_budget"] == 0,
           f"{r['mean_cpu_s']*1000:.0f} ms mean per game, {r['games_over_budget']} games over")
 
     r = run(rnd, f, games=20, quiet=True)
-    check("random_agent loses to f_agent", r["win_rate"] <= 0.1,
+    check("random_agent loses to valuefn_agent", r["win_rate"] <= 0.1,
           f"win rate {r['win_rate']:.2f} over 20 games")
 
     a = run(f, rnd, games=15, quiet=True)

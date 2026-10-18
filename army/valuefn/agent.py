@@ -1,17 +1,8 @@
-"""F, written against the agent interface. This is the bot you have to beat.
+"""catanatron's ValueFunctionPlayer ("VF"), written against the agent interface.
 
-F scores a position with a weighted sum of 13 features and plays the move leading to the
-best-scoring position. It looks one move ahead and no further. The weights are catanatron's,
-unchanged.
-
-Two things here are the point of the exercise.
-
-1. F needs a full game to score a position, but your agent receives an observation. This agent
-   calls obs.sample_world() ONCE, so it is guessing the opponent's development cards. Sampling
-   several worlds and averaging usually decides better, and costs more CPU. That trade is yours.
-
-2. DEFAULT_WEIGHTS names 13 features. Ask which of them the engine's 614-number feature vector
-   actually contains.
+It scores a position with a weighted sum of 13 features and plays the move leading to the
+best-scoring position, one move ahead and no further. The weights are catanatron's, unchanged.
+It calls obs.sample_world() once, so it guesses the opponent's unplayed development cards.
 """
 import random
 

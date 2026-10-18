@@ -1,12 +1,10 @@
-"""Play two agents against each other and report the result. This is the script we score with.
+"""Play two agents against each other under the CPU clock and report the result.
 
-    python -m catan_kit.evaluate --a my_agent.py --b examples/f_agent.py --games 1000
-
-On the day we change only the seed set, the dice key and the opponents.
+    python -m catan_eval.evaluate --a my_agent.py --b examples/valuefn_agent.py --games 1000
 
 Each agent runs in its own process and sees only a masked copy of the game: the opponent's unplayed
 development cards are redrawn at random, and so is the deck. Every limit is enforced, not just
-measured; see catan_kit/match.py for the values and the reasons.
+measured; see catan_eval/match.py for the values and the reasons.
 
 Seats alternate. Each board is played twice, once from each seat, with the same dice both times.
 """
@@ -14,8 +12,8 @@ import argparse
 import sys
 import time
 
-from catan_kit._patch import ensure_hash_seed
-from catan_kit import match
+from catan_eval._patch import ensure_hash_seed
+from catan_eval import match
 
 
 def summarise(records, side="a"):

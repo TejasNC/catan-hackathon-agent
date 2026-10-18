@@ -1,24 +1,27 @@
-# A 2-player Catan agent: better evaluation, not deeper search
+# catan-bot: a 2-player Catan agent built on catanatron
 
-Team **bakarwadi**'s agent for the Catan agent hackathon (17 October 2026): 2-player Catan, no player
-trading, one CPU core and about **1 s of thinking per game**, scored against two anchor bots, **F**
-(catanatron's `ValueFunctionPlayer`) and **O** (the organisers' trained bot).
+A strong, fast agent for 2-player Settlers of Catan (no player trading, bank and port trades on, 10
+VP), built on the [catanatron](https://github.com/bcollazo/catanatron) engine. It plays inside a
+tight CPU budget, about **1 s of thinking per game** on one core, and it wins about **4 games in 5**
+against catanatron's `ValueFunctionPlayer`.
 
-| Submission | vs F | vs O | Mean CPU / game |
+| Agent | vs catanatron `ValueFunctionPlayer` (VF) | vs `AlphaBetaPlayer` depth 2 | Mean CPU / game |
 |---|---|---|---|
-| `army/v5`: value function + self-play-tuned weights | 0.779 ± 0.026 | 0.626 ± 0.030 | 164 ms |
-| **`army/comboop1`**: v5 + turn planning + regime weights + learned opening (final) | **0.813 ± 0.024** | **0.658 ± 0.029** | 277 ms |
+| `army/v5`: value function + self-play-tuned weights | 0.79 (1000 games) | 0.88 (60 games, AB unclocked) | ~160 ms |
+| **`army/comboop1`**: v5 + turn planning + regime weights + learned opening | **0.82** (1000 games) | — | ~280 ms |
 
-*Leaderboard numbers, measured by the organisers over 1000 games each, with 0 games over the clock
-and 0 faults.*
+*All games are played through the clocked harness in `catan_eval/`: each agent runs in its own
+process under a CPU budget of 300 ms + 12.5 ms per decision (max 1.5 s per game), and sees only
+what a player can see (the opponent's unplayed dev cards are resampled).*
 
-**F was never used as a training or tuning opponent**, only as a held-out measuring stick.
+**VF was never used as a training or tuning opponent**, only as a held-out benchmark.
 
 ---
 
 ## How it works, in one minute
 
-1. **One sampled world per decision.** The only hidden information is the opponent's unplayed dev cards.
+1. **One sampled world per decision.** In 2-player Catan the opponent's resource hand is derivable,
+   so the only hidden information is their unplayed dev cards.
 2. **Every legal action is simulated and scored** with a hand-built value function in victory-point
    units:
 
@@ -36,22 +39,22 @@ and 0 faults.*
    that predicts the opponent's picks.
 6. **Weights** were tuned by **SPSA self-play** ($\theta^+$ vs $\theta^-$ of our own bot).
 
-The biggest lesson: about 26 of our ~32 points over F came from *what the bot values*, not how far it
+The main lesson: about 26 of our ~32 points over VF came from *what the bot values*, not how far it
 searches. A logistic regression that predicted game winners with 78 % accuracy won only 10 % of its
 games as a player. See [`docs/STORY.md`](docs/STORY.md) and [`docs/INSIGHTS.md`](docs/INSIGHTS.md).
 
 ## Version history
 
-| Version | Change | vs F (local, ≥ 400 games) |
+| Version | Change | vs VF (≥ 400 games) |
 |---|---|---|
-| F | catanatron `ValueFunctionPlayer` | 0.50 |
+| VF | catanatron `ValueFunctionPlayer` | 0.50 |
 | v1 | value function in VP units, chance in expectation, trade→build lookahead | 0.635 |
 | v2 | + knight / Road Building follow-up | 0.683 |
 | v3 | + snake-draft opening | 0.726 |
 | v5 | + SPSA self-play weights | 0.791 |
 | combo | + regime weights + turn planning | 0.793 (52.4 % head-to-head vs v5, 3000 games) |
 | comboop1 | + learned opening (op1) | 0.820 |
-| comboop1_fix | + audit fix (no pre-roll Monopoly) + clock guard | 0.770 (400 games, fresh seeds) |
+| comboop1_fix | + decision-audit fix (no pre-roll Monopoly) + stricter clock guard | 0.770 (400 games, fresh seeds) |
 
 ---
 
@@ -59,12 +62,13 @@ games as a player. See [`docs/STORY.md`](docs/STORY.md) and [`docs/INSIGHTS.md`]
 
 | Path | What it is |
 |---|---|
-| [`army/`](army/README.md) | **Every bot we built or used**, each self-contained and loadable by the harness. Includes the final `comboop1`, its audited variant `comboop1_fix`, and the opponents we evaluate against |
+| [`army/`](army/README.md) | **Every bot**, each self-contained (an `agent.py` with an `Agent` class). The strongest is `comboop1` |
 | `bot/` | Research agent: v5 defaults plus every experimental switch (regime, linear eval, robber weight, …) |
-| [`tools/`](tools/README.md) | Evaluation (`par_eval`, `h2h`, `gauntlet`, `parallel_eval`), tuning (`spsa`), learning (`gen_data`, `fit`), decision `audit`, packaging |
+| `catan_eval/` | Match harness: clocked agent processes, hidden-information masking, reproducible seeding |
+| [`tools/`](tools/README.md) | Evaluation (`par_eval`, `h2h`, `gauntlet`, `parallel_eval`), tuning (`spsa`), learning (`gen_data`, `fit`), decision `audit` |
 | `experiments/` | Variant wrappers for every experiment, SPSA logs, audit data, raw outputs |
-| [`docs/`](docs/) | [`STORY.md`](docs/STORY.md) (the day as a story), [`INSIGHTS.md`](docs/INSIGHTS.md) (full results log), [`EXPLAIN_comboop1.md`](docs/EXPLAIN_comboop1.md) (how the final bot works), [`report/`](docs/report/) (report PDF, walkthrough, presentation script), [`results/`](docs/results/) (per-experiment write-ups) |
-| `catan_kit/`, `examples/`, `PROBLEM_STATEMENT.md` | The hackathon kit: harness, scoring script, F and a random agent, rules |
+| [`docs/`](docs/) | [`STORY.md`](docs/STORY.md) (how the bot was built), [`INSIGHTS.md`](docs/INSIGHTS.md) (full results log), [`EXPLAIN_comboop1.md`](docs/EXPLAIN_comboop1.md) (how the strongest bot works), [`results/`](docs/results/) (per-experiment write-ups) |
+| `examples/` | Minimal agents: catanatron's `ValueFunctionPlayer` and a random agent |
 
 ## Quick start
 
@@ -72,34 +76,40 @@ Use **Python 3.11**. The engine is a pinned catanatron commit, so do not install
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install torch==2.8.0 --index-url https://download.pytorch.org/whl/cpu   # optional: our agents do not use torch
 pip install -r requirements.txt
-python -m catan_kit.selfcheck
+python -m catan_eval.selfcheck
 ```
 
-Play the final agent against F through the official, clocked harness:
+Play the strongest agent against catanatron's ValueFunctionPlayer, with the CPU clock on:
 
 ```bash
-python -m catan_kit.evaluate --a army/comboop1/agent.py --b examples/f_agent.py --games 200
-python tools/par_eval.py --a army/comboop1/agent.py --b army/f/agent.py --games 1000 --procs 4   # parallel version
+python -m catan_eval.evaluate --a army/comboop1/agent.py --b examples/valuefn_agent.py --games 200
+python tools/par_eval.py --a army/comboop1/agent.py --b army/valuefn/agent.py --games 1000 --procs 4
 ```
 
-Run a candidate against the whole bot army, or a head-to-head between two bots (paired boards):
+Head-to-head between two bots (paired boards), or one bot against the whole army:
 
 ```bash
-python tools/gauntlet.py army/comboop1/agent.py 400 4 4000000 --skip ab2
 python tools/h2h.py army/comboop1/agent.py army/v5/agent.py 600
+python tools/gauntlet.py army/comboop1/agent.py 400 4 4000000 --skip ab2
 ```
 
-Package a bot for upload (a zip with `agent.py` at the top level):
+## Writing your own agent
 
-```bash
-cd army/comboop1 && zip ../../comboop1.zip *.py *.json && cd -
+An agent is a folder with an `agent.py` defining:
+
+```python
+class Agent:
+    def decide(self, obs, playable_actions) -> int:
+        """Return the index of the chosen action in playable_actions."""
 ```
 
-## Credits and licence
+`obs` (see `catan_eval/obs.py`) exposes the board, both players' hands, public VPs and played dev
+cards, and `obs.sample_world(rng)`: a full catanatron `Game` consistent with what you can see. Use it
+for lookahead. `obs.cpu_left` is the remaining CPU budget for the game.
 
-Built on [catanatron](https://github.com/bcollazo/catanatron) by Bryan Collazo (GPL-3.0) and the
-organisers' hackathon kit. Released under GPL-3.0-or-later: see [`LICENSE`](LICENSE) and
-[`NOTICE.md`](NOTICE.md). Much of the code and analysis was written with Claude Code; every number
-comes from a run in this repository.
+## Licence
+
+GPL-3.0-or-later (catanatron is GPL-3.0): see [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md) for
+third-party credits. Much of the code and analysis was written with Claude Code; every number in
+this repository comes from a run in it.

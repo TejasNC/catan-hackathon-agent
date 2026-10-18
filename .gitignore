@@ -5,7 +5,6 @@ venv/
 .env
 *.egg-info/
 .DS_Store
-submissions/
 *.zip
 # large self-play datasets (regenerate with tools/gen_data.py)
 experiments/*.npz

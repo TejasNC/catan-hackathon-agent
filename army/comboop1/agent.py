@@ -1,6 +1,6 @@
 """combo (v5 + regime B + turn-plan lookahead) with op1's learned opening draft.
 
-Mid-game: bot_combo unchanged (cop1_core.py, cop1_base.py). Initial settlements: op1's draft search
+Mid-game: combo unchanged (cop1_core.py, cop1_base.py). Initial settlements: op1's draft search
 (cop1_opener.py), which scores the final four settlements with a logistic P(win | opening) model
 (open_model.json, 16k games) and predicts the opponent's picks with v5's draft (cop1_mbase.py).
 The opening search stops at a CPU deadline and is skipped below 120 ms of clock.

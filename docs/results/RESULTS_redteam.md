@@ -1,6 +1,6 @@
 # Red-team of `army/comboop1` (2026-10-17, ~40 min budget)
 
-Box: 4 cores, ~1.6x slower than the scoring machine. All adversaries and scripts are in `redteam/`;
+Box: 4 cores (a slow dev box). All adversaries and scripts are in `redteam/`;
 raw outputs in `redteam/out/`.
 
 ## Summary
@@ -39,7 +39,7 @@ Clocked (`tools/par_eval.py`), comboop1 vs `robber_spam`:
 **Finding 1.** The two overruns (games 29 and 63 of seed0 778000) were 159- and 168-turn games with
 137 / 149 decisions. Past ~96 decisions the allowance is capped at 1.5 s, so the clock stops growing while the bot keeps paying for search.
 Both games went `over='cpu'`, then 37 / 42 random moves, and **both were lost**. A robber-spamming opponent stretches games (several games
->100 turns), so an opponent can drive this. On the scoring machine (1.6x faster) the rate should be
+>100 turns), so an opponent can drive this. On a faster machine the rate should be
 much lower, but the margin is thin: 4 of 500 games finished at ≥1.41 s of 1.50 s.
 
 **Finding 2: slowest decision types** (unclocked in-process, so search always on; 600 games, ~33k decisions):
@@ -68,7 +68,7 @@ actions by 1-ply score.
 
 ## 3. Exploitability: no loophole found
 
-Simple adversaries (each built on F's value function for whatever it doesn't override):
+Simple adversaries (each built on VF's value function for whatever it doesn't override):
 
 - `robber_spam`: always buys dev cards and plays knights at once, and robs the tile with comboop1's most pips.
 - `road_plow`: always builds the road touching the most comboop1 roads/buildings (cutting its expansion).
@@ -85,7 +85,7 @@ In-process, paired seeds, 200 games each (seed0 880000):
 | robber_spam, clocked, 200 g, seed0 990500 | 0.835 | 0.800 |
 
 comboop1 stays well above 60 % and is never worse than v5. The robber-spammer is the strongest simple
-counter (≈16 % losses). It is a better F-like bot, not an exploit of comboop1, but it is also what makes games long (#1).
+counter (≈16 % losses). It is a better VF-like bot, not an exploit of comboop1, but it is also what makes games long (#1).
 
 ## 4. Decision sanity (hook logs, `redteam/sanity.py`, 600 games)
 
