@@ -108,6 +108,10 @@ class Agent:
 cards, and `obs.sample_world(rng)`: a full catanatron `Game` consistent with what you can see. Use it
 for lookahead. `obs.cpu_left` is the remaining CPU budget for the game.
 
+## Authors
+
+Uday, Avinash and Tejas.
+
 ## Licence
 
 GPL-3.0-or-later (catanatron is GPL-3.0): see [`LICENSE`](LICENSE) and [`NOTICE.md`](NOTICE.md) for
